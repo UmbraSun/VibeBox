@@ -1,0 +1,136 @@
+# .NET
+
+**/bin/
+**/obj/
+**/out/
+
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+
+.vs/
+
+# Rider / JetBrains
+
+.idea/
+*.sln.iml
+
+# VS Code
+
+.vscode/
+
+# NuGet
+
+**/packages/
+*.nupkg
+*.snupkg
+
+# Test results
+
+TestResults/
+*.trx
+coverage/
+coverage.xml
+*.coverage
+*.coveragexml
+
+# Generated files
+
+Generated/
+artifacts/
+
+# ASP.NET Core
+
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Node / React
+
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.yarn-cache/
+
+dist/
+build/
+out/
+
+*.tsbuildinfo
+
+# Environment files
+
+.env
+.env.*
+!.env.example
+
+# React / Vite
+
+.vite/
+
+# Docker
+
+docker-compose.override.yml
+
+# Logs
+
+*.log
+logs/
+
+# OS
+
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+# Local development data
+
+data/
+.local/
+.local-data/
+
+# Local Object Storage
+
+minio-data/
+
+# Local PostgreSQL
+
+postgres-data/
+
+# Local Redis
+
+redis-data/
+
+# Local Kafka
+
+kafka-data/
+
+# Secrets / certificates
+
+*.pfx
+*.p12
+*.key
+*.pem
+
+secrets/
+**/secrets/
+
+# OS / IDE specific
+
+*.pid
+*.pid.lock
+*.orig
+*.rej
