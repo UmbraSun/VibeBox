@@ -66,6 +66,7 @@ VibeBox follows a media-first architecture.
 
 Large media files should not be transferred through the application API. The API is responsible for authentication, authorization, metadata, upload orchestration, and business logic, while the actual media transfer is performed directly between the client and object storage whenever possible.
 
+```text
                          ┌──────────────────┐
                          │      React       │
                          └────────┬─────────┘
@@ -85,6 +86,7 @@ Large media files should not be transferred through the application API. The API
                               │
                               ▼
                            FFmpeg
+```
 
 ### Media Storage
 
@@ -92,6 +94,7 @@ Object Storage is used for binary media data.
 
 PostgreSQL stores metadata and references to stored objects rather than the media itself.
 
+```text
 PostgreSQL
     │
     └── MediaFile
@@ -111,6 +114,7 @@ Object Storage
               ├── videos/
               ├── thumbnails/
               └── previews/
+```
 
 This separation allows the API and database to scale independently from media storage and delivery.
 
@@ -180,6 +184,7 @@ The system is designed to support horizontal scaling.
 
 Application instances should remain as stateless as practical so that additional instances can be added behind a load balancer.
 
+```text
                     Load Balancer
                          │
               ┌──────────┼──────────┐
@@ -197,6 +202,7 @@ Application instances should remain as stateless as practical so that additional
        ┌────────┼────────┐
        ▼        ▼        ▼
     Worker    Worker    Worker
+```
 
 Media delivery is separated from application traffic through Object Storage and CDN.
 
@@ -247,6 +253,7 @@ Important metrics will include:
 
 The project will use a modular structure with a clear separation between application logic, infrastructure, media processing, and realtime communication.
 
+```text
 VibeBox/
 │
 ├── src/
@@ -281,6 +288,7 @@ VibeBox/
 ├── README.md
 ├── .gitignore
 └── docker-compose.yml
+```
 
 The physical project structure may evolve as the system grows. New infrastructure or services should be introduced only when they solve a concrete scalability, reliability, or architectural requirement.
 
