@@ -1,6 +1,4 @@
-﻿using Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi;
+﻿using Microsoft.OpenApi;
 
 namespace Api.Extensions;
 
@@ -33,33 +31,6 @@ public static class DependencyInjectionExtensions
                 Version = "v1",
                 Description = "VibeBox backend API"
             });
-        });
-
-        return services;
-    }
-
-    public static IServiceCollection AddApplication(
-        this IServiceCollection services)
-    {
-        services.AddMediatR(configuration =>
-        {
-            configuration.RegisterServicesFromAssembly(typeof(DependencyInjectionExtensions).Assembly);
-        });
-
-        return services;
-    }
-
-    public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services,
-        IConfiguration configuration)
-    {
-        var connectionString = configuration.GetConnectionString("PostgreSQL")
-            ?? throw new InvalidOperationException(
-                "Connection string 'PostgreSQL' was not found.");
-
-        services.AddDbContext<ApplicationDbContext>(options =>
-        {
-            options.UseNpgsql(connectionString);
         });
 
         return services;

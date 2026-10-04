@@ -8,6 +8,8 @@ public static class WebApplicationExtensions
     public static WebApplication ConfigurePipeline(
         this WebApplication app)
     {
+        app.UseExceptionHandling();
+
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
