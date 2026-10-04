@@ -134,3 +134,4 @@ secrets/
 *.pid.lock
 *.orig
 *.rej
+/VibeBox/Api/appsettings.Development.json
