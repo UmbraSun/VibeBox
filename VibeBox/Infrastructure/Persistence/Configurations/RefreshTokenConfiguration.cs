@@ -29,7 +29,7 @@ public sealed class RefreshTokenConfiguration
         builder.Property(x => x.ReplacedByTokenHash)
             .HasMaxLength(64);
 
-        builder.HasOne<User>()
+        builder.HasOne(x => x.User)
             .WithMany(x => x.RefreshTokens)
             .HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.Cascade);

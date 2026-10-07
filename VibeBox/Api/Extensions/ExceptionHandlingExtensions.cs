@@ -53,6 +53,21 @@ public static class ExceptionHandlingExtensions
                             break;
                         }
 
+                    case UnauthorizedAccessException:
+                        {
+                            context.Response.StatusCode =
+                                StatusCodes.Status401Unauthorized;
+
+                            context.Response.ContentType = "application/json";
+
+                            await context.Response.WriteAsJsonAsync(new
+                            {
+                                error = "Unauthorized."
+                            });
+
+                            break;
+                        }
+
                     default:
                         {
                             context.Response.StatusCode =

@@ -18,6 +18,7 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
         CancellationToken cancellationToken)
     {
         return _context.RefreshTokens
+            .Include(x => x.User)
             .FirstOrDefaultAsync(
                 x => x.TokenHash == tokenHash,
                 cancellationToken);
