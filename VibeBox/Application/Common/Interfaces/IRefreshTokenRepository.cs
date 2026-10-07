@@ -3,37 +3,35 @@
 namespace Application.Common.Interfaces;
 
 /// <summary>
-/// Represents a repository for managing user entities.
+/// Represents a repository for managing refresh tokens.
 /// </summary>
-public interface IUserRepository
+public interface IRefreshTokenRepository
 {
     /// <summary>
-    /// Checks if a user with the specified email exists in the repository.
+    /// Retrieves a refresh token by its hash.
     /// </summary>
-    /// <param name="email"></param>
+    /// <param name="tokenHash"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<bool> ExistsByEmailAsync(
-        string email,
+    Task<RefreshToken?> GetByHashAsync(
+        string tokenHash,
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Adds a new user to the repository.
+    /// Adds a new refresh token to the repository.
     /// </summary>
-    /// <param name="user"></param>
+    /// <param name="refreshToken"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     Task AddAsync(
-        User user,
+        RefreshToken refreshToken,
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Retrieves a user by their email from the repository.
+    /// Saves changes made in the repository to the underlying data store.
     /// </summary>
-    /// <param name="email"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<User?> GetByEmailAsync(
-        string email,
+    Task SaveChangesAsync(
         CancellationToken cancellationToken);
 }
