@@ -1,4 +1,8 @@
-﻿using Microsoft.OpenApi;
+﻿using Application.Common.Settings;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using System.Text;
 
 namespace Api.Extensions;
 
@@ -32,6 +36,33 @@ public static class DependencyInjectionExtensions
                 Description = "VibeBox backend API"
             });
         });
+
+        var jwtSettings = configuration
+            .GetSection(JwtSettings.SectionName)
+            .Get<JwtSettings>()
+            ?? throw new InvalidOperationException("JWT settings were not configured.");
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtSettings.Issuer,
+
+                    ValidateAudience = true,
+                    ValidAudience = jwtSettings.Audience,
+
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+            });
+
+        services.AddAuthorization();
 
         return services;
     }

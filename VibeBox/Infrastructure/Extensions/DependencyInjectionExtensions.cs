@@ -1,4 +1,5 @@
 ﻿using Application.Common.Interfaces;
+using Application.Common.Settings;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Repositories;
 using Infrastructure.Security;
@@ -24,6 +25,9 @@ public static class DependencyInjectionExtensions
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+        services.AddScoped<ITokenService, JwtTokenService>();
 
         return services;
     }
