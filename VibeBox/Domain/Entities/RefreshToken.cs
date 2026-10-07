@@ -16,6 +16,8 @@ public sealed class RefreshToken
 
     public string? ReplacedByTokenHash { get; private set; }
 
+    public User User { get; private set; } = null!;
+
     private RefreshToken()
     {
     }

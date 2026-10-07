@@ -1,4 +1,5 @@
 ﻿using Application.Features.Users.Commands.Login;
+using Application.Features.Users.Commands.Refresh;
 using Application.Features.Users.Commands.Register;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -44,6 +45,22 @@ public sealed class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(
         LoginUserCommand command,
+        CancellationToken cancellationToken)
+    {
+        var response = await _sender.Send(command, cancellationToken);
+
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Refreshes the access token using a valid refresh token and returns a new access token and refresh token.
+    /// </summary>
+    /// <param name="command"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpPost("refresh")]
+    public async Task<ActionResult<LoginResponse>> Refresh(
+        RefreshAccessTokenCommand command,
         CancellationToken cancellationToken)
     {
         var response = await _sender.Send(command, cancellationToken);
