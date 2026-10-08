@@ -28,6 +28,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IRoomRepository, RoomRepository>();
 
         return services;
     }
