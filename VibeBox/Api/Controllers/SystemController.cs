@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
@@ -17,5 +18,20 @@ public sealed class SystemController : ControllerBase
     public IActionResult Ping()
     {
         return Ok(new { status = "ok" });
+    }
+
+    /// <summary>
+    /// Endpoint to retrieve information about the currently authenticated user. Requires the user to be authenticated.
+    /// </summary>
+    /// <returns></returns>
+    [Authorize]
+    [HttpGet("me")]
+    public IActionResult Me()
+    {
+        return Ok(new
+        {
+            userId = User.FindFirst("sub")?.Value,
+            email = User.FindFirst("email")?.Value
+        });
     }
 }

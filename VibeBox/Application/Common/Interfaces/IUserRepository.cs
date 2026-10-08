@@ -36,4 +36,14 @@ public interface IUserRepository
     Task<User?> GetByEmailAsync(
         string email,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Retrieves a user by their unique identifier from the repository.
+    /// </summary>
+    /// <param name="userId"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<User?> GetByIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
 }
