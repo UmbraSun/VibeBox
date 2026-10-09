@@ -68,6 +68,21 @@ public static class ExceptionHandlingExtensions
                             break;
                         }
 
+                    case KeyNotFoundException:
+                        {
+                            context.Response.StatusCode =
+                                StatusCodes.Status404NotFound;
+
+                            context.Response.ContentType = "application/json";
+
+                            await context.Response.WriteAsJsonAsync(new
+                            {
+                                error = "Resource was not found."
+                            });
+
+                            break;
+                        }
+
                     default:
                         {
                             context.Response.StatusCode =

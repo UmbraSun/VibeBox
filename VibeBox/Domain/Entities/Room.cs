@@ -12,6 +12,9 @@ public sealed class Room
 
     public User Owner { get; private set; } = null!;
 
+    public ICollection<RoomParticipant> Participants { get; private set; }
+        = new List<RoomParticipant>();
+
     private Room()
     {
     }
@@ -26,5 +29,11 @@ public sealed class Room
         OwnerId = ownerId;
         Name = name;
         CreatedAtUtc = createdAtUtc;
+
+        Participants.Add(
+            new RoomParticipant(
+                id,
+                ownerId,
+                createdAtUtc));
     }
 }

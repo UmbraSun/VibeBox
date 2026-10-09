@@ -16,6 +16,8 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<Room> Rooms => Set<Room>();
 
+    public DbSet<RoomParticipant> RoomParticipants => Set<RoomParticipant>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(
