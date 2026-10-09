@@ -1,4 +1,5 @@
-﻿using Infrastructure.Persistence;
+﻿using Api.Hubs;
+using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Extensions;
@@ -24,6 +25,7 @@ public static class WebApplicationExtensions
         app.UseAuthorization();
 
         app.MapControllers();
+        app.MapHub<CallSignalingHub>("/hubs/call-signaling");
 
         return app;
     }

@@ -2,6 +2,7 @@
 using Application.Common.Interfaces;
 using Application.Common.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Text;
@@ -15,7 +16,18 @@ public static class DependencyInjectionExtensions
         IConfiguration configuration)
     {
         services.AddControllers();
+        services.AddCorsConfig();
+        services.AddSwagger();
+        services.AddAuthorization(configuration);
+        services.AddHttpContextAccessor();
+        services.AddServices();
+        services.AddSignalRConf();
 
+        return services;
+    }
+
+    private static void AddCorsConfig(this IServiceCollection services)
+    {
         services.AddCors(options =>
         {
             options.AddPolicy("ReactClient", policy =>
@@ -23,10 +35,14 @@ public static class DependencyInjectionExtensions
                 policy
                     .WithOrigins("http://localhost:5173")
                     .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .AllowAnyMethod()
+                    .AllowCredentials();
             });
         });
+    }
 
+    private static void AddSwagger(this IServiceCollection services)
+    {
         services.AddEndpointsApiExplorer();
 
         services.AddSwaggerGen(options =>
@@ -54,7 +70,10 @@ public static class DependencyInjectionExtensions
                     [new OpenApiSecuritySchemeReference("Bearer", document)] = []
                 });
         });
+    }
 
+    private static void AddAuthorization(this IServiceCollection services, IConfiguration configuration)
+    {
         var jwtSettings = configuration
             .GetSection(JwtSettings.SectionName)
             .Get<JwtSettings>()
@@ -81,10 +100,51 @@ public static class DependencyInjectionExtensions
             });
 
         services.AddAuthorization();
-        services.AddHttpContextAccessor();
+    }
 
+    private static void AddServices(this IServiceCollection services)
+    {
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+    }
 
-        return services;
+    private static void AddSignalRConf(this IServiceCollection services)
+    {
+        services.AddSignalR(options =>
+        {
+            options.EnableDetailedErrors = true;
+            options.MaximumReceiveMessageSize = 1024 * 1024; // 1 MB
+        });
+
+        services.AddSingleton<IUserIdProvider, SignalRUserIdProvider>();
+
+        services.PostConfigure<JwtBearerOptions>(
+            JwtBearerDefaults.AuthenticationScheme,
+            options =>
+            {
+                var previousHandler = options.Events.OnMessageReceived;
+
+                options.Events.OnMessageReceived = async context =>
+                {
+                    if (previousHandler is not null)
+                    {
+                        await previousHandler(context);
+                    }
+
+                    if (string.IsNullOrEmpty(context.Token) &&
+                        context.Request.Path.StartsWithSegments(
+                            "/hubs/call-signaling"))
+                    {
+                        var accessToken =
+                            context.Request.Query["access_token"];
+
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            context.Token = accessToken;
+                        }
+                    }
+                };
+            });
+
+        services.AddSingleton<RoomConnectionTracker>();
     }
 }
