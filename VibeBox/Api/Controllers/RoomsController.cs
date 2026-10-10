@@ -1,4 +1,6 @@
 ﻿using Api.Contracts.Rooms;
+using Api.Hubs;
+using Api.Services;
 using Application.Features.Rooms.Commands.AddParticipant;
 using Application.Features.Rooms.Commands.Create;
 using Application.Features.Rooms.Commands.RemoveParticipant;
@@ -9,6 +11,7 @@ using Application.Features.Rooms.Queries.GetRoomById;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Api.Controllers;
 
@@ -21,10 +24,17 @@ namespace Api.Controllers;
 public sealed class RoomsController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly IHubContext<CallSignalingHub, ICallSignalingClient> _signalingHub;
+    private readonly RoomConnectionTracker _connectionTracker;
 
-    public RoomsController(ISender sender)
+    public RoomsController(
+        ISender sender, 
+        IHubContext<CallSignalingHub, ICallSignalingClient> signalingHub, 
+        RoomConnectionTracker connectionTracker)
     {
         _sender = sender;
+        _signalingHub = signalingHub;
+        _connectionTracker = connectionTracker;
     }
 
     /// <summary>
@@ -120,9 +130,17 @@ public sealed class RoomsController : ControllerBase
         Guid userId,
         CancellationToken cancellationToken)
     {
-        await _sender.Send(
-            new RemoveRoomParticipantCommand(id, userId),
-            cancellationToken);
+        await _sender.Send(new RemoveRoomParticipantCommand(id, userId), cancellationToken);
+
+        var connectionIds = _connectionTracker.RemoveUserFromRoom(id, userId);
+        var groupName = $"room:{id}";
+
+        foreach (var connectionId in connectionIds)
+            await _signalingHub.Groups.RemoveFromGroupAsync(connectionId, groupName, cancellationToken);
+
+        if (connectionIds.Count > 0)
+            await _signalingHub.Clients.Group(groupName)
+                .ParticipantLeft(id, userId);
 
         return NoContent();
     }
