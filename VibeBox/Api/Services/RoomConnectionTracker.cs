@@ -105,6 +105,27 @@ public sealed class RoomConnectionTracker
         }
     }
 
+    public IReadOnlyList<string> RemoveUserFromRoom(
+        Guid roomId,
+        Guid userId)
+    {
+        lock (_sync)
+        {
+            if (!_rooms.TryGetValue(roomId, out var users) || users.Remove(userId, out var connections))
+                return [];
+
+            var connectionIds = connections.ToArray();
+
+            foreach (var connectionId in connectionIds)
+                RemoveConnectionMembership(connectionId, new RoomConnectionMembership(roomId, userId));
+
+            if (users.Count == 0)
+                _rooms.Remove(roomId);
+
+            return connectionIds;
+        }
+    }
+
     private void RemoveConnectionMembership(
         string connectionId,
         RoomConnectionMembership membership)
