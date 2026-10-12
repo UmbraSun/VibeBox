@@ -6,6 +6,7 @@ import {
     type RoomDetails,
     type RoomParticipant,
 } from "@/api/roomsApi";
+import { useRoomSignaling } from "@/features/rooms/hooks/useRoomSignaling";
 
 function getErrorMessage(error: unknown, fallback: string): string {
     if (axios.isAxiosError(error)) {
@@ -26,6 +27,10 @@ export function RoomDetailsPage() {
     const [isAddingParticipant, setIsAddingParticipant] = useState(false);
     const [addParticipantError, setAddParticipantError] = useState<string | null>(null);
     const [addParticipantMessage, setAddParticipantMessage] = useState<string | null>(null);
+    const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(null);
+    const [removeParticipantError, setRemoveParticipantError] = useState<string | null>(null);
+    const [removeParticipantMessage, setRemoveParticipantMessage] = useState<string | null>(null);
+    const { connectionStatus, events } = useRoomSignaling(id);
 
     const loadRoom = useCallback(async () => {
         if (!id) {
@@ -82,6 +87,34 @@ export function RoomDetailsPage() {
         }
     }
 
+    async function handleRemoveParticipant(userId: string) {
+        if (!id || removingParticipantId) return;
+
+        const confirmed = window.confirm(
+            "Are you sure you want to remove this participant?",
+        );
+
+        if (!confirmed) return;
+
+        setRemovingParticipantId(userId);
+        setRemoveParticipantError(null);
+        setRemoveParticipantMessage(null);
+        setAddParticipantError(null);
+        setAddParticipantMessage(null);
+
+        try {
+            await roomsApi.removeParticipant(id, userId);
+            setRemoveParticipantMessage("Participant removed.");
+            await loadRoom();
+        } catch (requestError: unknown) {
+            setRemoveParticipantError(
+                getErrorMessage(requestError, "Unable to remove participant."),
+            );
+        } finally {
+            setRemovingParticipantId(null);
+        }
+    }
+
     useEffect(() => {
         void loadRoom();
     }, [loadRoom]);
@@ -125,6 +158,32 @@ export function RoomDetailsPage() {
 
                         <section className="rooms-section">
                             <div className="rooms-heading">
+                                <h2>Call connection</h2>
+
+                                <span
+                                    className={`connection-status connection-status--${connectionStatus}`}
+                                >
+                                    {connectionStatus === "connected"
+                                        ? "Connected"
+                                        : connectionStatus === "connecting"
+                                            ? "Connecting..."
+                                            : connectionStatus === "error"
+                                                ? "Connection error"
+                                                : "Disconnected"}
+                                </span>
+                            </div>
+
+                            {events.length > 0 && (
+                                <div className="signaling-events" aria-live="polite">
+                                    {events.map((event) => (
+                                        <p key={event.id}>{event.message}</p>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="rooms-section">
+                            <div className="rooms-heading">
                                 <h2>Participants</h2>
                                 <span className="participant-count">
                                     {participants.length}
@@ -149,12 +208,26 @@ export function RoomDetailsPage() {
                             </form>
 
                             {addParticipantError && (
-                                <p className="form-error" role="alert">{addParticipantError}</p>
+                                <p className="form-error" role="alert">
+                                    {addParticipantError}
+                                </p>
+                            )}
+
+                            {removeParticipantError && (
+                                <p className="form-error" role="alert">
+                                    {removeParticipantError}
+                                </p>
                             )}
 
                             {addParticipantMessage && (
                                 <p className="success-message" role="status">
                                     {addParticipantMessage}
+                                </p>
+                            )}
+
+                            {removeParticipantMessage && (
+                                <p className="success-message" role="status">
+                                    {removeParticipantMessage}
                                 </p>
                             )}
 
@@ -182,6 +255,17 @@ export function RoomDetailsPage() {
                                                     ).toLocaleDateString()}
                                                 </p>
                                             </div>
+
+                                            <button
+                                                type="button"
+                                                className="remove-participant-button"
+                                                disabled={removingParticipantId !== null}
+                                                onClick={() => void handleRemoveParticipant(participant.userId)}
+                                            >
+                                                {removingParticipantId === participant.userId
+                                                    ? "Removing..."
+                                                    : "Remove"}
+                                            </button>
                                         </article>
                                     ))}
                                 </div>

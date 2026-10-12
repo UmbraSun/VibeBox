@@ -65,6 +65,13 @@ export const roomsApi = {
     await apiClient.post(`/rooms/${id}/participants`, request);
   },
 
+  async removeParticipant(
+    id: string,
+    userId: string,
+  ): Promise<void> {
+    await apiClient.delete(`/rooms/${id}/participants/${userId}`);
+  },
+
   async getRoomParticipants(id: string): Promise<RoomParticipant[]> {
     const response = await apiClient.get<RoomParticipant[]>(
       `/rooms/${id}/participants`,
