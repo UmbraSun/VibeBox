@@ -369,3 +369,64 @@ a:hover {
     color: #86efac;
     font-size: 14px;
 }
+
+.remove-participant-button {
+    flex-shrink: 0;
+    min-height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #7f1d1d;
+    border-radius: 10px;
+    background: #450a0a33;
+    color: #fca5a5;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.remove-participant-button:hover:not(:disabled) {
+    background: #7f1d1d66;
+}
+
+.remove-participant-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.connection-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border: 1px solid #404040;
+    border-radius: 999px;
+    color: #a3a3a3;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.connection-status--connected {
+    border-color: #166534;
+    background: #14532d33;
+    color: #86efac;
+}
+
+.connection-status--connecting {
+    color: #fcd34d;
+}
+
+.connection-status--error {
+    border-color: #7f1d1d;
+    color: #fca5a5;
+}
+
+.signaling-events {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.signaling-events p {
+    margin: 0;
+    color: #a3a3a3;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
