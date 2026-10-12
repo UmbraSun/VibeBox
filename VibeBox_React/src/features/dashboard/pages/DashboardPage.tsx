@@ -7,6 +7,7 @@ import {
   type RoomSummary,
 } from "@/api/roomsApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import { Link } from "react-router-dom";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
@@ -172,13 +173,16 @@ export function DashboardPage() {
             <div className="rooms-list">
               {rooms.map((room) => (
                 <article className="room-card" key={room.id}>
-                  <div>
-                    <h3>{room.name}</h3>
-                    <p>
-                      Created{" "}
-                      {new Date(room.createdAtUtc).toLocaleDateString()}
-                    </p>
-                  </div>
+                  <Link to={`/rooms/${room.id}`} className="room-card-link">
+                    <div>
+                      <h3>{room.name}</h3>
+                      <p>
+                        Created {new Date(room.createdAtUtc).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span className="room-card-arrow" aria-hidden="true">
+                    </span>
+                  </Link>
                 </article>
               ))}
             </div>

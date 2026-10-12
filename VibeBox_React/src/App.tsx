@@ -3,6 +3,7 @@ import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { RegisterPage } from "@/features/auth/pages/RegisterPage";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { DashboardPage } from "@/features/dashboard/pages/DashboardPage";
+import { RoomDetailsPage } from "@/features/rooms/pages/RoomDetailsPage";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/rooms/:id" element={<RoomDetailsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

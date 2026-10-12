@@ -17,6 +17,22 @@ export interface CreateRoomResponse {
   createdAtUtc: string;
 }
 
+export interface RoomDetails {
+  id: string;
+  name: string;
+  createdAtUtc: string;
+}
+
+export interface RoomParticipant {
+  userId: string;
+  email: string;
+  joinedAtUtc: string;
+}
+
+export interface AddRoomParticipantRequest {
+  userId: string;
+}
+
 export const roomsApi = {
   async getMyRooms(): Promise<RoomSummary[]> {
     const response = await apiClient.get<RoomSummary[]>("/rooms");
@@ -33,4 +49,27 @@ export const roomsApi = {
 
     return response.data;
   },
+
+  async getRoomById(id: string): Promise<RoomDetails> {
+    const response = await apiClient.get<RoomDetails>(
+      `/rooms/${id}`,
+    );
+
+    return response.data;
+  },
+
+  async addParticipant(
+    id: string,
+    request: AddRoomParticipantRequest,
+  ): Promise<void> {
+    await apiClient.post(`/rooms/${id}/participants`, request);
+  },
+
+  async getRoomParticipants(id: string): Promise<RoomParticipant[]> {
+    const response = await apiClient.get<RoomParticipant[]>(
+      `/rooms/${id}/participants`,
+    );
+
+    return response.data;
+  }
 };
