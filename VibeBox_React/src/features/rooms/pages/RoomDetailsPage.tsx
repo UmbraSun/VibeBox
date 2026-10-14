@@ -228,7 +228,7 @@ export function RoomDetailsPage() {
                                         className="secondary-button"
                                         onClick={stopMedia}
                                     >
-                                        Turn off camera
+                                        Turn off camera and microphone
                                     </button>
                                 )}
                             </div>

@@ -56,4 +56,16 @@ public interface IRoomRepository
     Task<IReadOnlyList<Room>> GetByParticipantIdAsync(
         Guid userId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Retrieves a Room entity by its ID and participant ID asynchronously. Returns null if not found.
+    /// </summary>
+    /// <param name="roomId"></param>
+    /// <param name="userId"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<Room?> GetByIdAndUserIdAsync(
+        Guid roomId,
+        Guid userId,
+        CancellationToken cancellationToken);
 }

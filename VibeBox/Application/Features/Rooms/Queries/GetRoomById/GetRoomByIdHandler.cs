@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+﻿
+using Application.Common.Interfaces;
 using MediatR;
 
 namespace Application.Features.Rooms.Queries.GetRoomById;
@@ -21,7 +22,7 @@ public sealed class GetRoomByIdHandler
         GetRoomByIdQuery request,
         CancellationToken cancellationToken)
     {
-        var room = await _roomRepository.GetByIdAndOwnerIdAsync(
+        var room = await _roomRepository.GetByIdAndUserIdAsync(
             request.RoomId,
             _currentUserService.UserId,
             cancellationToken);
