@@ -7,6 +7,9 @@ import {
     type RoomParticipant,
 } from "@/api/roomsApi";
 import { useRoomSignaling } from "@/features/rooms/hooks/useRoomSignaling";
+import { useLocalMedia } from "@/features/rooms/hooks/useLocalMedia";
+import { useWebRtcCall } from "@/features/rooms/hooks/useWebRtcCall";
+import { VideoTile } from "@/features/rooms/components/VideoTile";
 
 function getErrorMessage(error: unknown, fallback: string): string {
     if (axios.isAxiosError(error)) {
@@ -30,7 +33,16 @@ export function RoomDetailsPage() {
     const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(null);
     const [removeParticipantError, setRemoveParticipantError] = useState<string | null>(null);
     const [removeParticipantMessage, setRemoveParticipantMessage] = useState<string | null>(null);
-    const { connectionStatus, events } = useRoomSignaling(id);
+    const { connectionStatus, events, connection } = useRoomSignaling(id);
+    const {
+        stream,
+        error: mediaError,
+        isLoading: isMediaLoading,
+        startMedia,
+        stopMedia,
+    } = useLocalMedia();
+    const { remoteStreams } = useWebRtcCall(id, connection, stream);
+
 
     const loadRoom = useCallback(async () => {
         if (!id) {
@@ -178,6 +190,74 @@ export function RoomDetailsPage() {
                                     {events.map((event) => (
                                         <p key={event.id}>{event.message}</p>
                                     ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="rooms-section">
+                            <div className="rooms-heading">
+                                <h2>Your camera</h2>
+                            </div>
+
+                            {stream ? (
+                                <VideoTile stream={stream} label="You" muted />
+                            ) : (
+                                <p className="rooms-message">
+                                    Camera and microphone are not enabled.
+                                </p>
+                            )}
+
+                            {mediaError && (
+                                <p className="form-error" role="alert">
+                                    {mediaError}
+                                </p>
+                            )}
+
+                            <div className="media-controls">
+                                {!stream ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => void startMedia()}
+                                        disabled={isMediaLoading}
+                                    >
+                                        {isMediaLoading ? "Enabling devices..." : "Enable camera"}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="secondary-button"
+                                        onClick={stopMedia}
+                                    >
+                                        Turn off camera
+                                    </button>
+                                )}
+                            </div>
+                        </section>
+
+                        <section className="rooms-section">
+                            <div className="rooms-heading">
+                                <h2>Remote participants</h2>
+                            </div>
+
+                            {Object.keys(remoteStreams).length === 0 ? (
+                                <p className="rooms-message">
+                                    Waiting for another participant to connect...
+                                </p>
+                            ) : (
+                                <div className="video-grid">
+                                    {Object.entries(remoteStreams).map(([userId, remoteStream]) => {
+                                        const participant = participants.find(
+                                            (item) => item.userId === userId,
+                                        );
+
+                                        return (
+                                            <VideoTile
+                                                key={userId}
+                                                stream={remoteStream}
+                                                label={participant?.email ?? userId}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             )}
                         </section>
