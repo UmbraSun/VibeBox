@@ -23,16 +23,24 @@ public sealed class GetRoomParticipantsHandler
         _currentUserService = currentUserService;
     }
 
+
     public async Task<IReadOnlyList<RoomParticipantResponse>> Handle(
         GetRoomParticipantsQuery request,
         CancellationToken cancellationToken)
     {
+        var userId = _currentUserService.UserId;
+
         var room = await _roomRepository.GetByIdAndOwnerIdAsync(
             request.RoomId,
-            _currentUserService.UserId,
+            userId,
             cancellationToken);
 
-        if (room is null)
+        var participant = await _participantRepository.GetByRoomIdAndUserIdAsync(
+            request.RoomId,
+            userId,
+            cancellationToken);
+
+        if (room is null && participant is null)
             throw new KeyNotFoundException("Room was not found.");
 
         var participants = await _participantRepository.GetByRoomIdAsync(
@@ -46,4 +54,5 @@ public sealed class GetRoomParticipantsHandler
                 x.JoinedAtUtc))
             .ToList();
     }
+
 }

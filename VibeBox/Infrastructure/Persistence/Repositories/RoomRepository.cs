@@ -61,4 +61,17 @@ public sealed class RoomRepository : IRoomRepository
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<Room?> GetByIdAndUserIdAsync(
+        Guid roomId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.Rooms
+            .Where(room =>
+                room.Id == roomId &&
+                (room.OwnerId == userId ||
+                 room.Participants.Any(participant => participant.UserId == userId)))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }
