@@ -21,6 +21,7 @@ export function useRoomSignaling(roomId: string | undefined) {
     const [connectionStatus, setConnectionStatus] =
         useState<ConnectionStatus>("disconnected");
     const [events, setEvents] = useState<SignalingEvent[]>([]);
+    const [connection, setConnection] = useState<HubConnection | null>(null);
 
     useEffect(() => {
         if (!roomId) return;
@@ -63,6 +64,8 @@ export function useRoomSignaling(roomId: string | undefined) {
                 })
                 .withAutomaticReconnect()
                 .build();
+
+            setConnection(connection);
 
             connection.on(
                 "ParticipantJoined",
@@ -128,6 +131,7 @@ export function useRoomSignaling(roomId: string | undefined) {
 
         return () => {
             active = false;
+            setConnection(null);
 
             if (connection?.state !== undefined &&
                 connection.state !== HubConnectionState.Disconnected) {
@@ -139,5 +143,6 @@ export function useRoomSignaling(roomId: string | undefined) {
     return {
         connectionStatus,
         events,
+        connection,
     };
 }
