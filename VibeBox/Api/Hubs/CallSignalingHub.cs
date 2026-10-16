@@ -27,29 +27,27 @@ public sealed class CallSignalingHub : Hub<ICallSignalingClient>
     public Task SendOffer(
         Guid roomId,
         Guid targetUserId,
-        string sdp,
-        CancellationToken cancellationToken)
+        string sdp)
     {
         return SendDescriptionAsync(
             roomId,
             targetUserId,
             sdp,
             isOffer: true,
-            cancellationToken);
+            Context.ConnectionAborted);
     }
 
     public Task SendAnswer(
         Guid roomId,
         Guid targetUserId,
-        string sdp,
-        CancellationToken cancellationToken)
+        string sdp)
     {
         return SendDescriptionAsync(
             roomId,
             targetUserId,
             sdp,
             isOffer: false,
-            cancellationToken);
+            Context.ConnectionAborted);
     }
 
     public async Task SendIceCandidate(
@@ -57,8 +55,7 @@ public sealed class CallSignalingHub : Hub<ICallSignalingClient>
         Guid targetUserId,
         string candidate,
         string? sdpMid,
-        int? sdpMLineIndex,
-        CancellationToken cancellationToken)
+        int? sdpMLineIndex)
     {
         var senderUserId = GetCurrentUserId();
 
@@ -69,7 +66,7 @@ public sealed class CallSignalingHub : Hub<ICallSignalingClient>
             roomId,
             senderUserId,
             targetUserId,
-            cancellationToken);
+            Context.ConnectionAborted);
 
         await Clients.User(targetUserId.ToString()).ReceiveIceCandidate(
             roomId,
@@ -161,12 +158,14 @@ public sealed class CallSignalingHub : Hub<ICallSignalingClient>
             groupName,
             Context.ConnectionAborted);
 
-        var isFirstConnection = _connectionTracker.AddConnection(
-            roomId,
+        var registration = _connectionTracker.AddConnectionAndGetExistingUsers(roomId,
             userId,
             Context.ConnectionId);
 
-        if (isFirstConnection)
+        foreach (var existingUserId in registration.ExistingUserIds)
+            await Clients.Caller.ParticipantJoined(roomId, existingUserId);
+
+        if (registration.IsFirstConnection)
             await Clients.OthersInGroup(groupName)
                 .ParticipantJoined(roomId, userId);
     }
