@@ -1,6 +1,7 @@
 ﻿namespace Api.Services;
 
 public sealed record RoomConnectionMembership(Guid RoomId, Guid UserId);
+public sealed record RoomConnectionRegistration(bool IsFirstConnection, IReadOnlyList<Guid> ExistingUserIds);
 
 public sealed class RoomConnectionTracker
 {
@@ -137,5 +138,43 @@ public sealed class RoomConnectionTracker
 
         if (memberships.Count == 0)
             _connections.Remove(connectionId);
+    }
+
+    public RoomConnectionRegistration AddConnectionAndGetExistingUsers(
+        Guid roomId,
+        Guid userId,
+        string connectionId)
+    {
+        lock (_sync)
+        {
+            if (!_rooms.TryGetValue(roomId, out var users))
+            {
+                users = [];
+                _rooms.Add(roomId, users);
+            }
+
+            var existingUserIds = users.Keys
+                .Where(existingUserId => existingUserId != userId)
+                .ToArray();
+
+            if (!users.TryGetValue(userId, out var connections))
+            {
+                connections = new HashSet<string>(StringComparer.Ordinal);
+                users.Add(userId, connections);
+            }
+
+            if (!connections.Add(connectionId))
+                return new RoomConnectionRegistration(false, existingUserIds);
+
+            if (!_connections.TryGetValue(connectionId, out var memberships))
+            {
+                memberships = [];
+                _connections.Add(connectionId, memberships);
+            }
+
+            memberships.Add(new RoomConnectionMembership(roomId, userId));
+
+            return new RoomConnectionRegistration(connections.Count == 1, existingUserIds);
+        }
     }
 }

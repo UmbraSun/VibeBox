@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import {
     HubConnectionBuilder,
     HubConnectionState,
+    LogLevel,
     type HubConnection,
 } from "@microsoft/signalr";
 import { useAuthStore } from "@/features/auth/store/authStore";
@@ -23,29 +25,61 @@ export function useRoomSignaling(roomId: string | undefined) {
     const [events, setEvents] = useState<SignalingEvent[]>([]);
     const [connection, setConnection] = useState<HubConnection | null>(null);
 
+    const eventIdRef = useRef(0);
+
     useEffect(() => {
-        if (!roomId) return;
+        if (!roomId) {
+            setConnection(null);
+            setConnectionStatus("disconnected");
+            return;
+        }
 
         let active = true;
-        let eventId = 0;
-        let connection: HubConnection | null = null;
+        let currentConnection: HubConnection | null = null;
+        let stopPromise: Promise<void> | null = null;
 
+        eventIdRef.current = 0;
         setConnectionStatus("connecting");
         setEvents([]);
 
         function addEvent(message: string) {
             if (!active) return;
 
+            const id = ++eventIdRef.current;
+
             setEvents((current) => [
                 ...current,
-                { id: ++eventId, message },
+                { id, message },
             ].slice(-5));
         }
 
-        async function joinRoom(currentConnection: HubConnection) {
-            await currentConnection.invoke("JoinRoom", roomId);
+        async function stopConnection(target: HubConnection) {
+            if (stopPromise) {
+                await stopPromise;
+                return;
+            }
 
-            if (active) {
+            if (target.state === HubConnectionState.Disconnected) {
+                return;
+            }
+
+            stopPromise = target.stop();
+
+            try {
+                await stopPromise;
+            } finally {
+                stopPromise = null;
+            }
+        }
+
+        async function joinRoom(target: HubConnection) {
+            if (!active || target.state !== HubConnectionState.Connected) {
+                return;
+            }
+
+            await target.invoke("JoinRoom", roomId);
+
+            if (active && currentConnection === target) {
                 setConnectionStatus("connected");
             }
         }
@@ -57,85 +91,130 @@ export function useRoomSignaling(roomId: string | undefined) {
                 throw new Error("SignalR hub URL is not configured.");
             }
 
-            connection = new HubConnectionBuilder()
+            const target = new HubConnectionBuilder()
                 .withUrl(hubUrl, {
                     accessTokenFactory: () =>
                         useAuthStore.getState().accessToken ?? "",
                 })
                 .withAutomaticReconnect()
+                .configureLogging(LogLevel.Information)
                 .build();
 
-            setConnection(connection);
+            currentConnection = target;
 
-            connection.on(
+            target.on(
                 "ParticipantJoined",
                 (eventRoomId: string, userId: string) => {
-                    if (eventRoomId !== roomId) return;
+                    if (!active || eventRoomId !== roomId) return;
+
+                    console.log("[SignalR] ParticipantJoined", {
+                        eventRoomId,
+                        userId,
+                    });
 
                     addEvent(`Participant joined: ${userId}`);
                 },
             );
 
-            connection.on(
+            target.on(
                 "ParticipantLeft",
                 (eventRoomId: string, userId: string) => {
-                    if (eventRoomId !== roomId) return;
+                    if (!active || eventRoomId !== roomId) return;
+
+                    console.log("[SignalR] ParticipantLeft", {
+                        eventRoomId,
+                        userId,
+                    });
 
                     addEvent(`Participant left: ${userId}`);
                 },
             );
 
-            connection.onreconnecting(() => {
-                if (active) {
+            target.onreconnecting((error) => {
+                console.warn("[SignalR] Reconnecting", error);
+
+                if (active && currentConnection === target) {
                     setConnectionStatus("connecting");
                 }
             });
 
-            connection.onreconnected(async () => {
-                if (!active || !connection) return;
+            target.onreconnected(async (connectionId) => {
+                console.log("[SignalR] Reconnected", { connectionId });
+
+                if (!active || currentConnection !== target) return;
 
                 try {
-                    await joinRoom(connection);
+                    await joinRoom(target);
                     addEvent("Connection restored.");
-                } catch {
-                    if (active) {
+                } catch (error) {
+                    console.error("[SignalR] Failed to rejoin room", error);
+
+                    if (active && currentConnection === target) {
                         setConnectionStatus("error");
                         addEvent("Failed to rejoin the room.");
                     }
                 }
             });
 
-            connection.onclose(() => {
-                if (active) {
+            target.onclose((error) => {
+                if (error) {
+                    console.error("[SignalR] Connection closed", error);
+                }
+
+                if (active && currentConnection === target) {
                     setConnectionStatus("disconnected");
                 }
             });
 
-            await connection.start();
+            try {
+                console.log("[SignalR] Calling connection.start()");
+                await target.start();
 
-            if (!active) {
-                await connection.stop();
-                return;
+                if (!active || currentConnection !== target) {
+                    await stopConnection(target);
+                    return;
+                }
+
+                setConnection(target);
+
+                console.log("[SignalR] Connection started", {
+                    connectionId: target.connectionId,
+                    state: target.state,
+                });
+
+                await joinRoom(target);
+
+                if (active && currentConnection === target) {
+                    addEvent("Connected to room signaling.");
+                    console.log("[SignalR] JoinRoom completed", { roomId });
+                }
+            } catch (error) {
+                if (active && currentConnection === target) {
+                    console.error("[SignalR] Connection startup failed", error);
+                    setConnectionStatus("error");
+                    addEvent("Unable to connect to room signaling.");
+                }
+
+                await stopConnection(target).catch((stopError: unknown) => {
+                    console.error("[SignalR] Failed to stop connection", stopError);
+                });
             }
-
-            await joinRoom(connection);
-            addEvent("Connected to room signaling.");
         }
 
-        void startConnection().catch(() => {
-            if (active) {
-                setConnectionStatus("error");
-                addEvent("Unable to connect to room signaling.");
-            }
-        });
+        void startConnection();
 
         return () => {
             active = false;
-            setConnection(null);
 
-            if (connection?.state !== undefined &&
-                connection.state !== HubConnectionState.Disconnected) {
-                void connection.stop();
+            const target = currentConnection;
+            currentConnection = null;
+
+            setConnection((existing) => existing === target ? null : existing);
+
+            if (target) {
+                void stopConnection(target).catch((error: unknown) => {
+                    console.error("[SignalR] Cleanup failed", error);
+                });
             }
         };
     }, [roomId]);
