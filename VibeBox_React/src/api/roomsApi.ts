@@ -33,6 +33,12 @@ export interface AddRoomParticipantRequest {
   userId: string;
 }
 
+export interface LiveKitTokenResponse {
+  serverUrl: string;
+  participantToken: string;
+  roomName: string;
+}
+
 export const roomsApi = {
   async getMyRooms(): Promise<RoomSummary[]> {
     const response = await apiClient.get<RoomSummary[]>("/rooms");
@@ -78,5 +84,13 @@ export const roomsApi = {
     );
 
     return response.data;
-  }
+  },
+
+  async getLiveKitToken(id: string): Promise<LiveKitTokenResponse> {
+    const response = await apiClient.post<LiveKitTokenResponse>(
+      `/rooms/${id}/livekit-token`,
+    );
+
+    return response.data;
+  },
 };

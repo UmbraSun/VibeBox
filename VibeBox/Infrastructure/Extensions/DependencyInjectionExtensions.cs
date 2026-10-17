@@ -30,7 +30,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IRoomRepository, RoomRepository>();
         services.AddScoped<IRoomParticipantRepository, RoomParticipantRepository>();
-
+        services.Configure<LiveKitSettings>(configuration.GetSection(LiveKitSettings.SectionName));
+        services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
+        
         return services;
     }
 
