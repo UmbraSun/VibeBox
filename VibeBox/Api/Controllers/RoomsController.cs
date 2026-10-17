@@ -1,6 +1,8 @@
 ﻿using Api.Contracts.Rooms;
 using Api.Hubs;
 using Api.Services;
+using Application.Common.Interfaces;
+using Application.Common.Settings;
 using Application.Features.Rooms.Commands.AddParticipant;
 using Application.Features.Rooms.Commands.Create;
 using Application.Features.Rooms.Commands.RemoveParticipant;
@@ -12,6 +14,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 namespace Api.Controllers;
 
@@ -26,15 +29,24 @@ public sealed class RoomsController : ControllerBase
     private readonly ISender _sender;
     private readonly IHubContext<CallSignalingHub, ICallSignalingClient> _signalingHub;
     private readonly RoomConnectionTracker _connectionTracker;
+    private readonly ILiveKitTokenService _liveKitTokenService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly LiveKitSettings _liveKitSettings;
 
     public RoomsController(
         ISender sender, 
         IHubContext<CallSignalingHub, ICallSignalingClient> signalingHub, 
-        RoomConnectionTracker connectionTracker)
+        RoomConnectionTracker connectionTracker,
+        ILiveKitTokenService liveKitTokenService,
+        ICurrentUserService currentUserService,
+        IOptions<LiveKitSettings> liveKitSettings)
     {
         _sender = sender;
         _signalingHub = signalingHub;
         _connectionTracker = connectionTracker;
+        _liveKitTokenService = liveKitTokenService;
+        _currentUserService = currentUserService;
+        _liveKitSettings = liveKitSettings.Value;
     }
 
     /// <summary>
@@ -143,5 +155,19 @@ public sealed class RoomsController : ControllerBase
                 .ParticipantLeft(id, userId);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Creates a LiveKit access token for an authorized room participant.
+    /// </summary>
+    [HttpPost("{id:guid}/livekit-token")]
+    public async Task<ActionResult<LiveKitTokenResponse>> CreateLiveKitToken(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var room = await _sender.Send(new GetRoomByIdQuery(id), cancellationToken);
+        var token = _liveKitTokenService.CreateToken(room.Id, _currentUserService.UserId);
+
+        return Ok(new LiveKitTokenResponse(_liveKitSettings.Url, token, room.Id.ToString()));
     }
 }
