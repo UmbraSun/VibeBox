@@ -18,6 +18,12 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<RoomParticipant> RoomParticipants => Set<RoomParticipant>();
 
+    public DbSet<Space> Spaces => Set<Space>();
+
+    public DbSet<SpaceMember> SpaceMembers => Set<SpaceMember>();
+
+    public DbSet<Channel> Channels => Set<Channel>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

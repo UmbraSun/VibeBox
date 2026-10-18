@@ -1,128 +1,130 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
 import {
     LiveKitRoom,
+    PreJoin,
     VideoConference,
+    type LocalUserChoices,
 } from "@livekit/components-react";
 import { roomsApi } from "@/api/roomsApi";
-
+import { useAuthStore } from "@/features/auth/store/authStore";
 import "@livekit/components-styles";
 
 interface LiveKitCallProps {
     roomId: string;
 }
 
+interface ConnectionDetails {
+    serverUrl: string;
+    participantToken: string;
+}
+
 export function LiveKitCall({ roomId }: LiveKitCallProps) {
-    const [serverUrl, setServerUrl] = useState("");
-    const [token, setToken] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [retry, setRetry] = useState(0);
+    const accessToken = useAuthStore((state) => state.accessToken);
+    const defaultUsername = (() => {
+        if (!accessToken) return "Guest";
 
-    useEffect(() => {
-        let cancelled = false;
+        try {
+            const payload = accessToken.split(".")[1];
+            const claims = JSON.parse(
+                atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+            ) as { email?: string };
 
-        async function loadToken() {
-            setIsLoading(true);
-            setError(null);
-            setToken("");
-            setServerUrl("");
-
-            try {
-                const result = await roomsApi.getLiveKitToken(roomId);
-
-                if (cancelled) return;
-
-                if (!result.serverUrl || !result.participantToken) {
-                    throw new Error(
-                        "The server returned an incomplete LiveKit configuration.",
-                    );
-                }
-
-                setServerUrl(result.serverUrl);
-                setToken(result.participantToken);
-            } catch (requestError: unknown) {
-                if (cancelled) return;
-
-                const message = axios.isAxiosError(requestError)
-                    ? requestError.response?.data?.message
-                    : requestError instanceof Error
-                        ? requestError.message
-                        : null;
-
-                setError(
-                    typeof message === "string"
-                        ? message
-                        : "Unable to connect to the video room.",
-                );
-            } finally {
-                if (!cancelled) {
-                    setIsLoading(false);
-                }
-            }
+            return claims.email?.split("@")[0] || "Guest";
+        } catch {
+            return "Guest";
         }
+    })();
+    const [connection, setConnection] = useState<ConnectionDetails | null>(null);
+    const [choices, setChoices] = useState<LocalUserChoices | null>(null);
+    const [isJoining, setIsJoining] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-        void loadToken();
+    async function handleJoin(selectedChoices: LocalUserChoices) {
+        setIsJoining(true);
+        setError(null);
 
-        return () => {
-            cancelled = true;
-        };
-    }, [roomId, retry]);
+        try {
+            const result = await roomsApi.getLiveKitToken(roomId);
 
-    if (isLoading) {
-        return (
-            <p className="rooms-message">
-                Connecting to video room...
-            </p>
-        );
+            if (!result.serverUrl || !result.participantToken) {
+                throw new Error(
+                    "The server returned incomplete LiveKit connection details.",
+                );
+            }
+
+            setChoices(selectedChoices);
+            setConnection({
+                serverUrl: result.serverUrl,
+                participantToken: result.participantToken,
+            });
+        } catch (requestError: unknown) {
+            const message = axios.isAxiosError(requestError)
+                ? requestError.response?.data?.message
+                : requestError instanceof Error
+                    ? requestError.message
+                    : null;
+
+            setError(
+                typeof message === "string"
+                    ? message
+                    : "Unable to join the video room. Please try again.",
+            );
+        } finally {
+            setIsJoining(false);
+        }
     }
 
-    if (error) {
+    if (connection && choices) {
         return (
-            <div>
-                <p className="form-error" role="alert">
-                    {error}
-                </p>
-
-                <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => setRetry((value) => value + 1)}
+            <div className="livekit-call">
+                <LiveKitRoom
+                    serverUrl={connection.serverUrl}
+                    token={connection.participantToken}
+                    connect
+                    audio={choices.audioEnabled}
+                    video={choices.videoEnabled}
+                    onError={(connectionError) => {
+                        console.error("LiveKit connection error:", connectionError);
+                        setError("Unable to establish the video connection.");
+                        setConnection(null);
+                        setChoices(null);
+                    }}
                 >
-                    Try again
-                </button>
+                    <VideoConference />
+                </LiveKitRoom>
             </div>
         );
     }
 
-    if (!serverUrl || !token) {
-        return (
-            <p className="form-error" role="alert">
-                LiveKit connection details are missing.
-            </p>
-        );
-    }
-
     return (
-        <div className="livekit-call">
-            <LiveKitRoom
-                serverUrl={serverUrl}
-                token={token}
-                connect
-                audio
-                video
-                onError={(connectionError) => {
-                    console.error(
-                        "LiveKit connection error:",
-                        connectionError,
-                    );
+        <div className="livekit-prejoin">
+            <h3>Before joining</h3>
+            <p className="rooms-message">
+                Check your camera and microphone settings before entering the room.
+            </p>
 
-                    setError("Unable to establish the video connection.");
-                }}
-            >
-                <VideoConference />
-            </LiveKitRoom>
+            {error && (
+                <p className="form-error" role="alert">
+                    {error}
+                </p>
+            )}
+
+            {isJoining ? (
+                <p className="rooms-message">Joining video room...</p>
+            ) : (
+                <PreJoin
+                    defaults={{
+                        username: defaultUsername,
+                        audioEnabled: false,
+                        videoEnabled: false,
+                    }}
+                    onSubmit={(selectedChoices) => {
+                        void handleJoin(selectedChoices);
+                    }}
+                />
+            )}
         </div>
     );
 }
