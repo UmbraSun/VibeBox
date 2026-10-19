@@ -83,6 +83,21 @@ public static class ExceptionHandlingExtensions
                             break;
                         }
 
+                    case ForbiddenAccessException forbiddenException:
+                        {
+                            context.Response.StatusCode =
+                                StatusCodes.Status403Forbidden;
+
+                            context.Response.ContentType = "application/json";
+
+                            await context.Response.WriteAsJsonAsync(new
+                            {
+                                error = forbiddenException.Message
+                            });
+
+                            break;
+                        }
+
                     default:
                         {
                             context.Response.StatusCode =
