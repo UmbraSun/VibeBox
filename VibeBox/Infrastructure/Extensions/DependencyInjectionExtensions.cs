@@ -33,6 +33,7 @@ public static class DependencyInjectionExtensions
         services.Configure<LiveKitSettings>(configuration.GetSection(LiveKitSettings.SectionName));
         services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
         services.AddScoped<ISpaceRepository, SpaceRepository>();
+        services.AddScoped<IMessageRepository, MessageRepository>();
 
         return services;
     }
