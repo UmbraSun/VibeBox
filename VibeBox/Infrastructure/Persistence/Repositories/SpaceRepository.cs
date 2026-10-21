@@ -1,6 +1,5 @@
 ﻿using Application.Common.Interfaces;
 using Domain.Entities;
-using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories;
@@ -78,6 +77,26 @@ public sealed class SpaceRepository : ISpaceRepository
     public async void RemoveMember(SpaceMember member)
     {
         _context.SpaceMembers.Remove(member);
+    }
+
+    public async Task AddChannelAsync(
+        Channel channel,
+        CancellationToken cancellationToken)
+    {
+        await _context.Channels.AddAsync(
+            channel,
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Channel>> GetChannelsAsync(
+        Guid spaceId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.Channels
+            .AsNoTracking()
+            .Where(channel => channel.SpaceId == spaceId)
+            .OrderBy(channel => channel.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task SaveChangesAsync(

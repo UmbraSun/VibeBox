@@ -83,6 +83,27 @@ public interface ISpaceRepository
     void RemoveMember(SpaceMember member);
 
     /// <summary>
+    /// Adds the specified channel to the space asynchronously.
+    /// </summary>
+    /// <param name="channel">The channel to add to the space.</param>
+    /// <param name="cancellationToken">A cancellation token to observe while performing the operation.</param>
+    /// <returns>A task that represents the asynchronous add operation.</returns>
+    Task AddChannelAsync(
+        Channel channel,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Retrieves the channels of the specified space.
+    /// </summary>
+    /// <param name="spaceId">Identifier of the space whose channels to retrieve.</param>
+    /// <param name="cancellationToken">Cancellation token to observe while waiting for the operation to complete.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains a read-only list of Channel.</returns>
+
+    Task<IReadOnlyList<Channel>> GetChannelsAsync(
+        Guid spaceId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Asynchronously saves all changes made in the current context to the underlying data store.
     /// </summary>
     /// <remarks>May throw update-related exceptions for failure conditions or OperationCanceledException if
