@@ -104,6 +104,16 @@ public interface ISpaceRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Retrieves the channel with the specified identifier.
+    /// </summary>
+    /// <param name="channelId"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<Channel?> GetChannelByIdAsync(
+        Guid channelId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Asynchronously saves all changes made in the current context to the underlying data store.
     /// </summary>
     /// <remarks>May throw update-related exceptions for failure conditions or OperationCanceledException if

@@ -99,6 +99,17 @@ public sealed class SpaceRepository : ISpaceRepository
             .ToListAsync(cancellationToken);
     }
 
+    public Task<Channel?> GetChannelByIdAsync(
+        Guid channelId,
+        CancellationToken cancellationToken)
+    {
+        return _context.Channels
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                channel => channel.Id == channelId,
+                cancellationToken);
+    }
+
     public async Task SaveChangesAsync(
         CancellationToken cancellationToken)
     {

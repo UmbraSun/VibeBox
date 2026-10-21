@@ -24,6 +24,8 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<Channel> Channels => Set<Channel>();
 
+    public DbSet<Message> Messages => Set<Message>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(
