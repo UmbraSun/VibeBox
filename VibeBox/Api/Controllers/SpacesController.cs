@@ -1,8 +1,10 @@
 ﻿using Api.Contracts.Spaces;
 using Application.Features.Spaces.Commands.AddSpaceMember;
+using Application.Features.Spaces.Commands.CreateChannel;
 using Application.Features.Spaces.Commands.CreateSpace;
 using Application.Features.Spaces.Commands.RemoveSpaceMember;
 using Application.Features.Spaces.Queries.GetMySpaces;
+using Application.Features.Spaces.Queries.GetSpaceChannels;
 using Application.Features.Spaces.Queries.GetSpaceMembers;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -145,5 +147,61 @@ public sealed class SpacesController : ControllerBase
             cancellationToken);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Creates a new channel within the specified space.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="request"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpPost("{id:guid}/channels")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateChannel(
+    Guid id,
+    [FromBody] CreateChannelRequest request,
+    CancellationToken cancellationToken)
+    {
+        var channelId = await _sender.Send(
+            new CreateChannelCommand(id, request.Name, request.Type),
+            cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            new { id = channelId });
+    }
+
+    /// <summary>
+    /// Gets the channels for the specified space.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpGet("{id:guid}/channels")]
+    [ProducesResponseType(typeof(IReadOnlyList<ChannelResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<ChannelResponse>>> GetChannels(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var channels = await _sender.Send(
+            new GetSpaceChannelsQuery(id),
+            cancellationToken);
+
+        var response = channels
+            .Select(channel => new ChannelResponse(
+                channel.Id,
+                channel.SpaceId,
+                channel.Name,
+                channel.Type,
+                channel.CreatedAtUtc))
+            .ToList();
+
+        return Ok(response);
     }
 }
