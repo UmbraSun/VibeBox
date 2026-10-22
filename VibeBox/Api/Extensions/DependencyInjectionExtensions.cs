@@ -126,21 +126,26 @@ public static class DependencyInjectionExtensions
                 options.Events.OnMessageReceived = async context =>
                 {
                     if (previousHandler is not null)
-                    {
                         await previousHandler(context);
-                    }
+                    
+                    var path = context.Request.Path;
 
                     if (string.IsNullOrEmpty(context.Token) &&
-                        context.Request.Path.StartsWithSegments(
-                            "/hubs/call-signaling"))
+                        path.StartsWithSegments("/hubs/call-signaling"))
                     {
-                        var accessToken =
-                            context.Request.Query["access_token"];
+                        var accessToken = context.Request.Query["access_token"];
 
                         if (!string.IsNullOrEmpty(accessToken))
-                        {
                             context.Token = accessToken;
-                        }
+                    }
+
+                    if (path.StartsWithSegments("/hubs/call-signaling") ||
+                        path.StartsWithSegments("/hubs/messages"))
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+
+                        if (!string.IsNullOrEmpty(accessToken))
+                            context.Token = accessToken;
                     }
                 };
             });
