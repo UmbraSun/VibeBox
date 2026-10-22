@@ -1,9 +1,11 @@
 ﻿using Api.Contracts.Messages;
+using Api.Hubs;
 using Application.Features.Messages.Commands.SendMessage;
 using Application.Features.Messages.Queries.GetChannelMessages;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Api.Controllers;
 
@@ -17,9 +19,14 @@ public sealed class MessagesController : ControllerBase
 {
     private readonly ISender _sender;
 
-    public MessagesController(ISender sender)
+    private readonly IHubContext<MessageHub> _messageHub;
+
+    public MessagesController(
+        ISender sender,
+        IHubContext<MessageHub> messageHub)
     {
         _sender = sender;
+        _messageHub = messageHub;
     }
 
     /// <summary>
@@ -44,6 +51,12 @@ public sealed class MessagesController : ControllerBase
         var id = await _sender.Send(
             new SendMessageCommand(channelId, request.Content),
             cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetChannelGroupName(channelId))
+            .SendAsync("MessageCreated",
+                new { Id = id, ChannelId = channelId },
+                cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created, new { id });
     }
@@ -79,4 +92,6 @@ public sealed class MessagesController : ControllerBase
 
         return Ok(response);
     }
+
+
 }

@@ -26,6 +26,7 @@ public static class WebApplicationExtensions
 
         app.MapControllers();
         app.MapHub<CallSignalingHub>("/hubs/call-signaling");
+        app.MapHub<MessageHub>("/hubs/messages");
 
         return app;
     }
