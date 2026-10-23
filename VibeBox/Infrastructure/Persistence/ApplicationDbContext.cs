@@ -1,9 +1,10 @@
-﻿using Domain.Entities;
+﻿using Application.Common.Interfaces;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
 
-public sealed class ApplicationDbContext : DbContext
+public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
@@ -25,6 +26,8 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<Channel> Channels => Set<Channel>();
 
     public DbSet<Message> Messages => Set<Message>();
+
+    IQueryable<User> IApplicationDbContext.Users => Users;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

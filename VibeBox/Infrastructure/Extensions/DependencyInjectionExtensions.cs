@@ -22,6 +22,7 @@ public static class DependencyInjectionExtensions
         {
             options.UseNpgsql(connectionString);
         });
+        services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
