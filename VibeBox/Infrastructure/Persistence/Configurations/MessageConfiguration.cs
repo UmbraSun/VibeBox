@@ -24,6 +24,10 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
 
         builder.Property(x => x.UpdatedAtUtc);
 
+        builder.Property(x => x.Content)
+            .HasMaxLength(4000)
+            .IsRequired(false);
+
         builder.HasOne(x => x.Channel)
             .WithMany()
             .HasForeignKey(x => x.ChannelId)

@@ -88,7 +88,13 @@ public sealed class MessagesController : ControllerBase
             message.Sender.Email,
             message.Content,
             message.CreatedAtUtc,
-            message.UpdatedAtUtc)).ToList();
+            message.UpdatedAtUtc,
+            message.Attachments.Select(attachment => new MessageAttachmentResponse(
+                attachment.Id,
+                attachment.FileName,
+                attachment.ContentType,
+                attachment.SizeBytes)).ToList()
+        )).ToList();
 
         return Ok(response);
     }

@@ -27,6 +27,8 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 
     public DbSet<Message> Messages => Set<Message>();
 
+    public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
+
     IQueryable<User> IApplicationDbContext.Users => Users;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

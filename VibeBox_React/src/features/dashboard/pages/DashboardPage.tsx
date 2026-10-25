@@ -16,6 +16,7 @@ import {
     spacesApi,
     type SpaceSummary,
     type ChannelSummary,
+    type SpaceMember,
 } from "@/api/spacesApi";
 import { ChannelChat } from "@/features/messages/components/ChannelChat";
 import { useAuthStore } from "@/features/auth/store/authStore";
@@ -45,6 +46,12 @@ export function DashboardPage() {
     const [createRoomError, setCreateRoomError] = useState<string | null>(null);
 
     // Spaces
+    const [members, setMembers] = useState<SpaceMember[]>([]);
+    const [memberEmail, setMemberEmail] = useState("");
+    const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+    const [isAddingMember, setIsAddingMember] = useState(false);
+    const [memberError, setMemberError] = useState<string | null>(null);
+    const [memberSuccess, setMemberSuccess] = useState<string | null>(null);
     const [spaces, setSpaces] = useState<SpaceSummary[]>([]);
     const [spaceName, setSpaceName] = useState("");
     const [selectedSpaceId, setSelectedSpaceId] = useState("");
@@ -165,6 +172,50 @@ export function DashboardPage() {
         };
     }, [selectedSpaceId]);
 
+    useEffect(() => {
+        let active = true;
+
+        setMembers([]);
+        setMemberError(null);
+        setMemberSuccess(null);
+
+        if (!selectedSpaceId) {
+            setIsLoadingMembers(false);
+            return;
+        }
+
+        async function loadMembers() {
+            setIsLoadingMembers(true);
+
+            try {
+                const result = await spacesApi.getMembers(selectedSpaceId);
+
+                if (active) {
+                    setMembers(result);
+                }
+            } catch (requestError: unknown) {
+                if (active) {
+                    setMemberError(
+                        getErrorMessage(
+                            requestError,
+                            "Unable to load space members.",
+                        ),
+                    );
+                }
+            } finally {
+                if (active) {
+                    setIsLoadingMembers(false);
+                }
+            }
+        }
+
+        void loadMembers();
+
+        return () => {
+            active = false;
+        };
+    }, [selectedSpaceId]);
+
     async function handleCreateRoom(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
 
@@ -252,6 +303,59 @@ export function DashboardPage() {
             );
         } finally {
             setIsCreatingChannel(false);
+        }
+    }
+
+    async function handleAddMember(event: SyntheticEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        const email = memberEmail.trim();
+
+        if (!selectedSpaceId || !email) {
+            return;
+        }
+
+        setMemberError(null);
+        setMemberSuccess(null);
+        setIsAddingMember(true);
+
+        try {
+            await spacesApi.addMember(selectedSpaceId, { email });
+
+            setMemberEmail("");
+            setMemberSuccess("Member added successfully.");
+
+            const updatedMembers = await spacesApi.getMembers(selectedSpaceId);
+            setMembers(updatedMembers);
+        } catch (requestError: unknown) {
+            setMemberError(
+                getErrorMessage(requestError, "Unable to add member."),
+            );
+        } finally {
+            setIsAddingMember(false);
+        }
+    }
+
+    async function handleRemoveMember(userId: string) {
+        if (!selectedSpaceId) {
+            return;
+        }
+
+        setMemberError(null);
+        setMemberSuccess(null);
+
+        try {
+            await spacesApi.removeMember(selectedSpaceId, userId);
+
+            setMembers((currentMembers) =>
+                currentMembers.filter((member) => member.userId !== userId),
+            );
+
+            setMemberSuccess("Member removed successfully.");
+        } catch (requestError: unknown) {
+            setMemberError(
+                getErrorMessage(requestError, "Unable to remove member."),
+            );
         }
     }
 
@@ -414,7 +518,7 @@ export function DashboardPage() {
                                     key={channel.id}
                                     className={
                                         channel.type === 0 &&
-                                        selectedChannelId === channel.id
+                                            selectedChannelId === channel.id
                                             ? "workspace-select-button is-active"
                                             : "workspace-select-button"
                                     }
@@ -430,6 +534,96 @@ export function DashboardPage() {
                                 </button>
                             ))}
                         </div>
+                    )}
+                </section>
+
+                <section className="rooms-section">
+                    <h2>Space members</h2>
+
+                    {!selectedSpaceId ? (
+                        <p className="rooms-message">
+                            Select a space to manage its members.
+                        </p>
+                    ) : (
+                        <>
+                            <form className="room-form" onSubmit={handleAddMember}>
+                                <label className="room-name-field">
+                                    Member email
+                                    <input
+                                        type="email"
+                                        value={memberEmail}
+                                        onChange={(event) => setMemberEmail(event.target.value)}
+                                        placeholder="friend@example.com"
+                                        required
+                                    />
+                                </label>
+
+                                <button
+                                    type="submit"
+                                    disabled={isAddingMember || isLoadingMembers}
+                                >
+                                    {isAddingMember ? "Adding..." : "Add member"}
+                                </button>
+                            </form>
+
+                            {memberError && (
+                                <p className="form-error" role="alert">
+                                    {memberError}
+                                </p>
+                            )}
+
+                            {memberSuccess && (
+                                <p className="rooms-message" role="status">
+                                    {memberSuccess}
+                                </p>
+                            )}
+
+                            {isLoadingMembers ? (
+                                <p className="rooms-message">Loading members...</p>
+                            ) : members.length === 0 ? (
+                                <p className="rooms-message">
+                                    No members found.
+                                </p>
+                            ) : (
+                                <div className="workspace-channel-list">
+                                    {members.map((member) => {
+                                        const selectedSpace = spaces.find(
+                                            (space) => space.id === selectedSpaceId,
+                                        );
+
+                                        const isOwner =
+                                            selectedSpace?.ownerId === member.userId;
+
+                                        return (
+                                            <div
+                                                className="workspace-member-row"
+                                                key={member.userId}
+                                            >
+                                                <div>
+                                                    <strong>{member.email}</strong>
+                                                    <p className="rooms-message">
+                                                        {member.role}
+                                                        {isOwner ? " · Space owner" : ""}
+                                                    </p>
+                                                </div>
+
+                                                {!isOwner && (
+                                                    <button
+                                                        type="button"
+                                                        className="secondary-button"
+                                                        onClick={() =>
+                                                            void handleRemoveMember(member.userId)
+                                                        }
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
                     )}
                 </section>
 

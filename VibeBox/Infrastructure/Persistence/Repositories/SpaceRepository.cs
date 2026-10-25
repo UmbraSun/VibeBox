@@ -74,7 +74,7 @@ public sealed class SpaceRepository : ISpaceRepository
             cancellationToken);
     }
 
-    public async void RemoveMember(SpaceMember member)
+    public void RemoveMember(SpaceMember member)
     {
         _context.SpaceMembers.Remove(member);
     }
