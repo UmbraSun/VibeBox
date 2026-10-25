@@ -57,6 +57,7 @@ public sealed class MessageRepository : IMessageRepository
 
         var messages = await query
             .Include(message => message.Sender)
+            .Include(message => message.Attachments)
             .OrderByDescending(message => message.CreatedAtUtc)
             .ThenByDescending(message => message.Id)
             .Take(limit)

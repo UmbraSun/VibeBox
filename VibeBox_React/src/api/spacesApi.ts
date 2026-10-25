@@ -27,6 +27,17 @@ export interface CreateChannelRequest {
     type: ChannelType;
 }
 
+export interface SpaceMember {
+    userId: string;
+    email: string;
+    role: string;
+    joinedAtUtc: string;
+}
+
+export interface AddSpaceMemberRequest {
+    email: string;
+}
+
 interface CreateResourceResponse {
     id: string;
 }
@@ -63,5 +74,27 @@ export const spacesApi = {
             request,
         );
         return response.data;
+    },
+
+    async getMembers(spaceId: string): Promise<SpaceMember[]> {
+        const response = await apiClient.get<SpaceMember[]>(
+            `/spaces/${spaceId}/members`,
+        );
+
+        return response.data;
+    },
+
+    async addMember(
+        spaceId: string,
+        request: AddSpaceMemberRequest,
+    ): Promise<void> {
+        await apiClient.post(`/spaces/${spaceId}/members`, request);
+    },
+
+    async removeMember(
+        spaceId: string,
+        userId: string,
+    ): Promise<void> {
+        await apiClient.delete(`/spaces/${spaceId}/members/${userId}`);
     },
 };

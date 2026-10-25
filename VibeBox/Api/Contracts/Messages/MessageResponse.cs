@@ -5,6 +5,7 @@ public sealed record MessageResponse(
     Guid ChannelId,
     Guid SenderId,
     string SenderEmail,
-    string Content,
+    string? Content,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    IReadOnlyList<MessageAttachmentResponse> Attachments);

@@ -5,12 +5,15 @@ public sealed class Message
     public Guid Id { get; private set; }
     public Guid ChannelId { get; private set; }
     public Guid SenderId { get; private set; }
-    public string Content { get; private set; } = null!;
+    public string? Content { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime? UpdatedAtUtc { get; private set; }
 
     public Channel Channel { get; private set; } = null!;
     public User Sender { get; private set; } = null!;
+
+    public ICollection<MessageAttachment> Attachments { get; private set; }
+        = new List<MessageAttachment>();
 
     private Message() { }
 
@@ -18,7 +21,7 @@ public sealed class Message
         Guid id,
         Guid channelId,
         Guid senderId,
-        string content,
+        string? content,
         DateTime createdAtUtc)
     {
         Id = id;
@@ -32,5 +35,15 @@ public sealed class Message
     {
         Content = content;
         UpdatedAtUtc = updatedAtUtc;
+    }
+
+    public void AddAttachment(MessageAttachment attachment)
+    {
+        if (attachment.MessageId != Id)
+            throw new ArgumentException(
+                "The attachment belongs to a different message.",
+                nameof(attachment));
+
+        Attachments.Add(attachment);
     }
 }

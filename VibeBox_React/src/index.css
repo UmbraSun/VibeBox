@@ -608,3 +608,24 @@ a:hover {
     cursor: not-allowed;
     opacity: 0.55;
 }
+
+.workspace-member-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid #303030;
+}
+
+.workspace-member-row:last-child {
+    border-bottom: none;
+}
+
+.workspace-member-row strong {
+    overflow-wrap: anywhere;
+}
+
+.workspace-member-row .rooms-message {
+    margin: 4px 0 0;
+}
