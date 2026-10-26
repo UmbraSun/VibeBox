@@ -1,8 +1,11 @@
-﻿using Application.Common.Interfaces;
+﻿using Amazon.Runtime;
+using Amazon.S3;
+using Application.Common.Interfaces;
 using Application.Common.Settings;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Repositories;
 using Infrastructure.Security;
+using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +26,38 @@ public static class DependencyInjectionExtensions
             options.UseNpgsql(connectionString);
         });
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
+
+        var storageSettings = configuration
+            .GetSection(ObjectStorageSettings.SectionName)
+            .Get<ObjectStorageSettings>();
+
+        if (storageSettings is not null &&
+            !string.IsNullOrWhiteSpace(storageSettings.ServiceUrl) &&
+            !string.IsNullOrWhiteSpace(storageSettings.BucketName) &&
+            !string.IsNullOrWhiteSpace(storageSettings.AccessKey) &&
+            !string.IsNullOrWhiteSpace(storageSettings.SecretKey))
+        {
+            services.AddSingleton<IAmazonS3>(_ =>
+            {
+                var config = new AmazonS3Config
+                {
+                    ServiceURL = storageSettings.ServiceUrl,
+                    ForcePathStyle = true,
+                    AuthenticationRegion = storageSettings.Region
+                };
+
+                var credentials = new BasicAWSCredentials(
+                    storageSettings.AccessKey,
+                    storageSettings.SecretKey);
+
+                return new AmazonS3Client(credentials, config);
+            });
+
+            services.AddSingleton<IObjectStorageService>(provider =>
+                new S3ObjectStorageService(
+                    provider.GetRequiredService<IAmazonS3>(),
+                    storageSettings.BucketName));
+        }
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();

@@ -30,4 +30,15 @@ public interface IMessageRepository
         Guid? beforeMessageId,
         int limit,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Asynchronously retrieves a message attachment by its unique identifier.
+    /// </summary>
+    /// <param name="attachmentId">The unique identifier of the attachment to retrieve.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the message attachment if found;
+    /// otherwise, null.</returns>
+    Task<MessageAttachment?> GetAttachmentByIdAsync(
+        Guid attachmentId,
+        CancellationToken cancellationToken);
 }
