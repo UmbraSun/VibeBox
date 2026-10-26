@@ -1,6 +1,7 @@
 ﻿using Api.Contracts.Messages;
 using Api.Hubs;
 using Application.Features.Messages.Commands.SendMessage;
+using Application.Features.Messages.Commands.UploadMessageAttachment;
 using Application.Features.Messages.Queries.GetChannelMessages;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -54,9 +55,7 @@ public sealed class MessagesController : ControllerBase
 
         await _messageHub.Clients
             .Group(MessageHub.GetChannelGroupName(channelId))
-            .SendAsync("MessageCreated",
-                new { Id = id, ChannelId = channelId },
-                cancellationToken);
+            .SendAsync("MessageCreated", new { Id = id, ChannelId = channelId }, cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created, new { id });
     }
@@ -99,5 +98,46 @@ public sealed class MessagesController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Uploads an attachment to the specified channel.
+    /// </summary>
+    /// <param name="channelId">The unique identifier of the channel.</param>
+    /// <param name="file">The file to upload as an attachment.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A result indicating the outcome of the upload operation.</returns>
+    [HttpPost("attachments")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(110 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 110 * 1024 * 1024)]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UploadAttachment(
+        Guid channelId,
+        [FromForm] IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { error = "A non-empty file is required." });
 
+        await using var stream = file.OpenReadStream();
+
+        var id = await _sender.Send(
+            new UploadMessageAttachmentCommand(
+                channelId,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                stream),
+            cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetChannelGroupName(channelId))
+            .SendAsync("MessageCreated", new { Id = id, ChannelId = channelId }, cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created, new { id });
+    }
 }

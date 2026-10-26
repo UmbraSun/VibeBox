@@ -67,4 +67,17 @@ public sealed class MessageRepository : IMessageRepository
 
         return messages;
     }
+
+    public async Task<MessageAttachment?> GetAttachmentByIdAsync(
+        Guid attachmentId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.MessageAttachments
+            .AsNoTracking()
+            .Include(attachment => attachment.Message)
+            .ThenInclude(message => message.Channel)
+            .FirstOrDefaultAsync(
+                attachment => attachment.Id == attachmentId,
+                cancellationToken);
+    }
 }
