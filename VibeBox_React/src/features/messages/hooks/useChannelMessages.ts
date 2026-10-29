@@ -20,7 +20,13 @@ type ConnectionStatus =
 
 function getErrorMessage(error: unknown, fallback: string): string {
     if (axios.isAxiosError(error)) {
-        return error.response?.data?.message ?? fallback;
+        const data = error.response?.data;
+
+        if (data instanceof Blob) {
+            return fallback;
+        }
+
+        return data?.message ?? data?.error ?? fallback;
     }
 
     if (error instanceof Error) {
@@ -86,6 +92,33 @@ export function useChannelMessages(channelId: string) {
         [channelId, isSending, loadMessages],
     );
 
+    const sendAttachment = useCallback(
+        async (file: File) => {
+            if (isSending) {
+                return;
+            }
+
+            setIsSending(true);
+            setError(null);
+
+            try {
+                await messagesApi.uploadAttachment(channelId, file);
+                await loadMessages();
+            } catch (requestError: unknown) {
+                setError(
+                    getErrorMessage(
+                        requestError,
+                        `Unable to upload "${file.name}".`,
+                    ),
+                );
+                throw requestError;
+            } finally {
+                setIsSending(false);
+            }
+        },
+        [channelId, isSending, loadMessages],
+    );
+
     useEffect(() => {
         let active = true;
         let connection:
@@ -129,6 +162,7 @@ export function useChannelMessages(channelId: string) {
                 if (active) {
                     setConnectionStatus("error");
                     setError("VITE_MESSAGE_HUB_URL is not configured.");
+                    setIsLoading(false);
                 }
 
                 return;
@@ -263,6 +297,7 @@ export function useChannelMessages(channelId: string) {
         isSending,
         error,
         sendMessage,
+        sendAttachment,
         reloadMessages: loadMessages,
     };
 }
