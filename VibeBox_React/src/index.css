@@ -629,3 +629,60 @@ a:hover {
 .workspace-member-row .rooms-message {
     margin: 4px 0 0;
 }
+
+.channel-chat-attachment {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 10px;
+    max-width: 100%;
+}
+
+.channel-chat-attachment-image,
+.channel-chat-attachment-video {
+    display: block;
+    max-width: min(100%, 560px);
+    max-height: 420px;
+    border: 1px solid #303030;
+    border-radius: 12px;
+    object-fit: contain;
+    background: #111;
+}
+
+.channel-chat-attachment-name {
+    color: #999;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.channel-chat-selected-files {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.channel-chat-selected-files li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #303030;
+    border-radius: 8px;
+    background: #111;
+}
+
+.channel-chat-selected-files li span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #ccc;
+    font-size: 13px;
+}
+
+.channel-chat-selected-files button {
+    flex-shrink: 0;
+}

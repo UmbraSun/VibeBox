@@ -1,14 +1,22 @@
 
 import { apiClient } from "@/api/apiClient";
 
+export interface MessageAttachmentResponse {
+    id: string;
+    fileName: string;
+    contentType: string;
+    sizeBytes: number;
+}
+
 export interface MessageResponse {
     id: string;
     channelId: string;
     senderId: string;
     senderEmail: string;
-    content: string;
+    content: string | null;
     createdAtUtc: string;
-    updatedAtUtc: string;
+    updatedAtUtc: string | null;
+    attachments: MessageAttachmentResponse[];
 }
 
 export interface SendMessageRequest {
@@ -39,6 +47,30 @@ export const messagesApi = {
         const response = await apiClient.post<SendMessageResponse>(
             `/channels/${channelId}/messages`,
             request,
+        );
+
+        return response.data;
+    },
+
+    async uploadAttachment(
+        channelId: string,
+        file: File,
+    ): Promise<SendMessageResponse> {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await apiClient.post<SendMessageResponse>(
+            `/channels/${channelId}/messages/attachments`,
+            formData,
+        );
+
+        return response.data;
+    },
+
+    async getAttachment(attachmentId: string): Promise<Blob> {
+        const response = await apiClient.get<Blob>(
+            `/attachments/${attachmentId}`,
+            { responseType: "blob" },
         );
 
         return response.data;
