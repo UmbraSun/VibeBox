@@ -52,19 +52,27 @@ export const messagesApi = {
         return response.data;
     },
 
-    async uploadAttachment(
+    uploadAttachments: (
         channelId: string,
-        file: File,
-    ): Promise<SendMessageResponse> {
+        files: File[],
+        content?: string,
+    ) => {
         const formData = new FormData();
-        formData.append("file", file);
 
-        const response = await apiClient.post<SendMessageResponse>(
+        const trimmedContent = content?.trim();
+
+        if (trimmedContent) {
+            formData.append("content", trimmedContent);
+        }
+
+        files.forEach((file) => {
+            formData.append("files", file);
+        });
+
+        return apiClient.post<{ id: string }>(
             `/channels/${channelId}/messages/attachments`,
             formData,
         );
-
-        return response.data;
     },
 
     async getAttachment(attachmentId: string): Promise<Blob> {

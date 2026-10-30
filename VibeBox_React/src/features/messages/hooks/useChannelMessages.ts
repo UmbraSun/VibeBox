@@ -92,25 +92,29 @@ export function useChannelMessages(channelId: string) {
         [channelId, isSending, loadMessages],
     );
 
-    const sendAttachment = useCallback(
-        async (file: File) => {
-            if (isSending) {
-                return;
-            }
+    const sendAttachments = useCallback(
+        async (files: File[], content?: string) => {
+            if (isSending || files.length === 0) return;
 
             setIsSending(true);
             setError(null);
 
             try {
-                await messagesApi.uploadAttachment(channelId, file);
+                await messagesApi.uploadAttachments(
+                    channelId,
+                    files,
+                    content,
+                );
+
                 await loadMessages();
             } catch (requestError: unknown) {
                 setError(
                     getErrorMessage(
                         requestError,
-                        `Unable to upload "${file.name}".`,
+                        "Unable to upload attachments.",
                     ),
                 );
+
                 throw requestError;
             } finally {
                 setIsSending(false);
@@ -297,7 +301,7 @@ export function useChannelMessages(channelId: string) {
         isSending,
         error,
         sendMessage,
-        sendAttachment,
+        sendAttachments,
         reloadMessages: loadMessages,
     };
 }
