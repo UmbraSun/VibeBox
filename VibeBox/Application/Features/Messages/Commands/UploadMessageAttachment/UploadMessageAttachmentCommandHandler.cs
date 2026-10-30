@@ -11,8 +11,10 @@ namespace Application.Features.Messages.Commands.UploadMessageAttachment;
 public sealed class UploadMessageAttachmentCommandHandler
     : IRequestHandler<UploadMessageAttachmentCommand, Guid>
 {
+    private const int MaxFilesCount = 5;
     private const long MaxImageSizeBytes = 10 * 1024 * 1024;
     private const long MaxVideoSizeBytes = 100 * 1024 * 1024;
+    private const long MaxTotalSizeBytes = 150 * 1024 * 1024;
 
     private static readonly IReadOnlyDictionary<string, string> AllowedFiles =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -50,6 +52,14 @@ public sealed class UploadMessageAttachmentCommandHandler
         UploadMessageAttachmentCommand request,
         CancellationToken cancellationToken)
     {
+        var content = string.IsNullOrWhiteSpace(request.Content)
+            ? null
+            : request.Content.Trim();
+
+        if (content?.Length > 4000)
+            throw new ValidationException(
+                "Message content must not exceed 4000 characters.");
+
         var channel = await _spaceRepository.GetChannelByIdAsync(
             request.ChannelId,
             cancellationToken);
@@ -58,7 +68,8 @@ public sealed class UploadMessageAttachmentCommandHandler
             throw new KeyNotFoundException("Channel was not found.");
 
         if (channel.Type != ChannelType.Text)
-            throw new ConflictException("Attachments can only be sent to text channels.");
+            throw new ConflictException(
+                "Attachments can only be sent to text channels.");
 
         var member = await _spaceRepository.GetMemberAsync(
             channel.SpaceId,
@@ -66,77 +77,209 @@ public sealed class UploadMessageAttachmentCommandHandler
             cancellationToken);
 
         if (member is null)
-            throw new ForbiddenAccessException("You are not a member of this space.");
+            throw new ForbiddenAccessException(
+                "You are not a member of this space.");
 
-        var extension = Path.GetExtension(request.FileName);
+        if (request.Files.Count == 0 || request.Files.Count > MaxFilesCount)
+            throw new ValidationException(
+                $"You can upload between 1 and {MaxFilesCount} files.");
 
-        if (!AllowedFiles.TryGetValue(extension, out var expectedContentType) ||
-            !string.Equals(
-                request.ContentType,
-                expectedContentType,
-                StringComparison.OrdinalIgnoreCase))
-            throw new ValidationException("Unsupported file type.");
+        long totalSize = 0;
 
-        var isVideo = expectedContentType.StartsWith(
-            "video/",
-            StringComparison.OrdinalIgnoreCase);
+        foreach (var file in request.Files)
+        {
+            if (file.SizeBytes <= 0)
+                throw new ValidationException(
+                    "Empty files cannot be uploaded.");
 
-        var maxSize = isVideo ? MaxVideoSizeBytes : MaxImageSizeBytes;
+            if (file.SizeBytes > MaxTotalSizeBytes - totalSize)
+                throw new ValidationException(
+                    "Total attachment size must not exceed 150 MB.");
 
-        if (request.SizeBytes <= 0 || request.SizeBytes > maxSize)
-            throw new ValidationException(isVideo
-                ? "Video size must not exceed 100 MB."
-                : "Image size must not exceed 10 MB.");
+            totalSize += file.SizeBytes;
+
+            var extension = Path.GetExtension(file.FileName);
+
+            if (!AllowedFiles.TryGetValue(
+                    extension,
+                    out var expectedContentType) ||
+                !string.Equals(
+                    file.ContentType,
+                    expectedContentType,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ValidationException(
+                    $"Unsupported file type: {file.FileName}.");
+            }
+
+            var isVideo = expectedContentType.StartsWith(
+                "video/",
+                StringComparison.OrdinalIgnoreCase);
+
+            var maxSize = isVideo
+                ? MaxVideoSizeBytes
+                : MaxImageSizeBytes;
+
+            if (file.SizeBytes > maxSize)
+            {
+                throw new ValidationException(isVideo
+                    ? "Video size must not exceed 100 MB."
+                    : "Image size must not exceed 10 MB.");
+            }
+
+            if (!await HasValidFileSignatureAsync(
+                    file.Content,
+                    expectedContentType,
+                    cancellationToken))
+            {
+                throw new ValidationException(
+                    $"File content does not match its declared format: {file.FileName}.");
+            }
+        }
 
         var messageId = Guid.NewGuid();
-        var attachmentId = Guid.NewGuid();
-        var storageKey = $"attachments/{channel.Id}/{messageId}/{attachmentId}";
+        var createdAtUtc = DateTime.UtcNow;
 
         var message = new Message(
             messageId,
             channel.Id,
             _currentUserService.UserId,
-            null,
-            DateTime.UtcNow);
+            content,
+            createdAtUtc);
 
-        var attachment = new MessageAttachment(
-            attachmentId,
-            messageId,
-            Path.GetFileName(request.FileName),
-            expectedContentType,
-            request.SizeBytes,
-            storageKey,
-            DateTime.UtcNow);
+        var storageKeys = new List<string>(request.Files.Count);
 
-        message.AddAttachment(attachment);
+        foreach (var file in request.Files)
+        {
+            var attachmentId = Guid.NewGuid();
+            var storageKey =
+                $"attachments/{channel.Id}/{messageId}/{attachmentId}";
 
-        await _objectStorage.UploadAsync(
-            storageKey,
-            request.Content,
-            expectedContentType,
-            cancellationToken);
+            var attachment = new MessageAttachment(
+                attachmentId,
+                messageId,
+                Path.GetFileName(file.FileName),
+                file.ContentType,
+                file.SizeBytes,
+                storageKey,
+                createdAtUtc);
+
+            message.AddAttachment(attachment);
+
+            storageKeys.Add(storageKey);
+        }
 
         try
         {
-            await _messageRepository.AddAsync(message, cancellationToken);
+            for (var index = 0; index < request.Files.Count; index++)
+            {
+                var file = request.Files[index];
+
+                await _objectStorage.UploadAsync(
+                    storageKeys[index],
+                    file.Content,
+                    file.ContentType,
+                    cancellationToken);
+            }
+
+            await _messageRepository.AddAsync(
+                message,
+                cancellationToken);
+
             await _context.SaveChangesAsync(cancellationToken);
 
             return messageId;
         }
         catch
         {
-            try
+            foreach (var storageKey in storageKeys)
             {
-                await _objectStorage.DeleteAsync(
-                    storageKey,
-                    CancellationToken.None);
-            }
-            catch
-            {
-                // Best-effort cleanup; preserve the original exception.
+                try
+                {
+                    await _objectStorage.DeleteAsync(
+                        storageKey,
+                        CancellationToken.None);
+                }
+                catch
+                {
+                    // Best-effort cleanup; preserve the original exception.
+                }
             }
 
             throw;
+        }
+    }
+
+    private static async Task<bool> HasValidFileSignatureAsync(
+        Stream stream,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        if (!stream.CanSeek)
+            throw new InvalidOperationException(
+                "File stream must support seeking.");
+
+        var originalPosition = stream.Position;
+
+        try
+        {
+            var header = new byte[12];
+            var bytesRead = 0;
+
+            while (bytesRead < header.Length)
+            {
+                var read = await stream.ReadAsync(
+                    header.AsMemory(bytesRead),
+                    cancellationToken);
+
+                if (read == 0)
+                    break;
+
+                bytesRead += read;
+            }
+
+            return contentType switch
+            {
+                "image/jpeg" =>
+                    bytesRead >= 3 &&
+                    header[0] == 0xFF &&
+                    header[1] == 0xD8 &&
+                    header[2] == 0xFF,
+
+                "image/png" =>
+                    bytesRead >= 8 &&
+                    header.AsSpan(0, 8).SequenceEqual(
+                        new byte[]
+                        {
+                            0x89, 0x50, 0x4E, 0x47,
+                            0x0D, 0x0A, 0x1A, 0x0A
+                        }),
+
+                "image/gif" =>
+                    bytesRead >= 6 &&
+                    (header.AsSpan(0, 6).SequenceEqual("GIF87a"u8) ||
+                     header.AsSpan(0, 6).SequenceEqual("GIF89a"u8)),
+
+                "image/webp" =>
+                    bytesRead >= 12 &&
+                    header.AsSpan(0, 4).SequenceEqual("RIFF"u8) &&
+                    header.AsSpan(8, 4).SequenceEqual("WEBP"u8),
+
+                "video/mp4" =>
+                    bytesRead >= 8 &&
+                    header.AsSpan(4, 4).SequenceEqual("ftyp"u8),
+
+                "video/webm" =>
+                    bytesRead >= 4 &&
+                    header.AsSpan(0, 4).SequenceEqual(
+                        new byte[] { 0x1A, 0x45, 0xDF, 0xA3 }),
+
+                _ => false
+            };
+        }
+        finally
+        {
+            stream.Position = originalPosition;
         }
     }
 }

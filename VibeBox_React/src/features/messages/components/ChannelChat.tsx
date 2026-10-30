@@ -13,6 +13,11 @@ interface ChannelChatProps {
     channelName: string;
 }
 
+const MAX_FILES_COUNT = 5;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+const MAX_TOTAL_SIZE = 150 * 1024 * 1024;
+
 function formatFileSize(sizeBytes: number): string {
     if (sizeBytes < 1024 * 1024) {
         return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
@@ -21,10 +26,45 @@ function formatFileSize(sizeBytes: number): string {
     return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function validateFiles(files: File[]): string | null {
+    if (files.length > MAX_FILES_COUNT) {
+        return `You can select a maximum of ${MAX_FILES_COUNT} files.`;
+    }
+
+    let totalSize = 0;
+
+    for (const file of files) {
+        const isVideo = file.type.startsWith("video/");
+        const isImage = file.type.startsWith("image/");
+
+        if (!isVideo && !isImage) {
+            return `Unsupported file type: ${file.name}.`;
+        }
+
+        const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+
+        if (file.size === 0 || file.size > maxSize) {
+            return isVideo
+                ? `Video "${file.name}" must not exceed 100 MB.`
+                : `Image "${file.name}" must not exceed 10 MB.`;
+        }
+
+        totalSize += file.size;
+
+        if (totalSize > MAX_TOTAL_SIZE) {
+            return "Total attachment size must not exceed 150 MB.";
+        }
+    }
+
+    return null;
+}
+
 function MessageAttachmentPreview({
     attachment,
+    onImageClick,
 }: {
     attachment: MessageAttachmentResponse;
+    onImageClick: (url: string, fileName: string) => void;
 }) {
     const [url, setUrl] = useState<string | null>(null);
     const [failed, setFailed] = useState(false);
@@ -82,11 +122,11 @@ function MessageAttachmentPreview({
 
     if (attachment.contentType.startsWith("image/")) {
         return (
-            <a
-                className="channel-chat-attachment-link"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
+            <button
+                type="button"
+                className="channel-chat-attachment-image-button"
+                onClick={() => onImageClick(url, attachment.fileName)}
+                aria-label={`View ${attachment.fileName}`}
             >
                 <img
                     className="channel-chat-attachment-image"
@@ -94,10 +134,9 @@ function MessageAttachmentPreview({
                     alt={attachment.fileName}
                     loading="lazy"
                 />
-            </a>
+            </button>
         );
     }
-
     if (attachment.contentType.startsWith("video/")) {
         return (
             <video
@@ -120,6 +159,31 @@ export function ChannelChat({
 }: ChannelChatProps) {
     const [content, setContent] = useState("");
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [fileError, setFileError] = useState<string | null>(null);
+    const [lightbox, setLightbox] = useState<{
+        url: string;
+        fileName: string;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!lightbox) return;
+
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                setLightbox(null);
+            }
+        }
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        window.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [lightbox]);
 
     const {
         messages,
@@ -128,7 +192,7 @@ export function ChannelChat({
         isSending,
         error,
         sendMessage,
-        sendAttachment,
+        sendAttachments,
     } = useChannelMessages(channelId);
 
     async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
@@ -136,23 +200,22 @@ export function ChannelChat({
 
         const message = content.trim();
 
-        if ((!message && selectedFiles.length === 0) || isSending) {
+        if (isSending || (!message && selectedFiles.length === 0)) {
             return;
         }
 
         try {
-            if (message) {
+            if (selectedFiles.length > 0) {
+                await sendAttachments(selectedFiles, message);
+            } else {
                 await sendMessage(message);
-                setContent("");
             }
 
-            for (const file of selectedFiles) {
-                await sendAttachment(file);
-            }
-
+            setContent("");
             setSelectedFiles([]);
+            setFileError(null);
         } catch {
-            // The hook exposes the request error to the UI.
+            // Error is already handled by the hook.
         }
     }
 
@@ -160,16 +223,50 @@ export function ChannelChat({
         event: SyntheticEvent<HTMLInputElement>,
     ) {
         const files = Array.from(event.currentTarget.files ?? []);
-        setSelectedFiles(files);
-
-        // Allows selecting the same file again after removing or uploading it.
         event.currentTarget.value = "";
+
+        if (files.length === 0) {
+            return;
+        }
+
+        setSelectedFiles((currentFiles) => {
+            const mergedFiles = [...currentFiles];
+
+            for (const file of files) {
+                const alreadySelected = mergedFiles.some(
+                    (existingFile) =>
+                        existingFile.name === file.name &&
+                        existingFile.size === file.size &&
+                        existingFile.lastModified === file.lastModified,
+                );
+
+                if (!alreadySelected) {
+                    mergedFiles.push(file);
+                }
+            }
+
+            const validationError = validateFiles(mergedFiles);
+
+            if (validationError) {
+                setFileError(validationError);
+                return currentFiles;
+            }
+
+            setFileError(null);
+            return mergedFiles;
+        });
     }
 
     function removeSelectedFile(indexToRemove: number) {
-        setSelectedFiles((currentFiles) =>
-            currentFiles.filter((_, index) => index !== indexToRemove),
-        );
+        setSelectedFiles((currentFiles) => {
+            const updatedFiles = currentFiles.filter(
+                (_, index) => index !== indexToRemove,
+            );
+
+            setFileError(validateFiles(updatedFiles));
+
+            return updatedFiles;
+        });
     }
 
     return (
@@ -184,16 +281,16 @@ export function ChannelChat({
                     {connectionStatus === "connected"
                         ? "Connected"
                         : connectionStatus === "connecting"
-                          ? "Connecting..."
-                          : connectionStatus === "error"
-                            ? "Connection error"
-                            : "Disconnected"}
+                            ? "Connecting..."
+                            : connectionStatus === "error"
+                                ? "Connection error"
+                                : "Disconnected"}
                 </span>
             </div>
 
-            {error && (
+            {(error || fileError) && (
                 <p className="form-error" role="alert">
-                    {error}
+                    {fileError ?? error}
                 </p>
             )}
 
@@ -228,6 +325,9 @@ export function ChannelChat({
                                 >
                                     <MessageAttachmentPreview
                                         attachment={attachment}
+                                        onImageClick={(url, fileName) =>
+                                            setLightbox({ url, fileName })
+                                        }
                                     />
                                     <span className="channel-chat-attachment-name">
                                         {attachment.fileName}
@@ -253,11 +353,12 @@ export function ChannelChat({
                         placeholder="Write a message..."
                         maxLength={4000}
                         rows={3}
+                        disabled={isSending}
                     />
                 </label>
 
                 <label className="room-name-field">
-                    Attach images, GIFs or videos
+                    Attach images, GIFs or videos (max. 5 files)
                     <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
@@ -299,10 +400,43 @@ export function ChannelChat({
                     {isSending
                         ? "Sending..."
                         : selectedFiles.length > 0
-                          ? `Send (${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"})`
-                          : "Send"}
+                            ? `Send (${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"})`
+                            : "Send"}
                 </button>
             </form>
+
+            {lightbox && (
+                <div
+                    className="channel-chat-lightbox"
+                    onClick={() => setLightbox(null)}
+                    role="presentation"
+                >
+                    <button
+                        type="button"
+                        className="channel-chat-lightbox-close"
+                        onClick={() => setLightbox(null)}
+                        aria-label="Close image preview"
+                    >
+                        &times;
+                    </button>
+
+                    <div
+                        className="channel-chat-lightbox-content"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={lightbox.fileName}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <img
+                            src={lightbox.url}
+                            alt={lightbox.fileName}
+                            className="channel-chat-lightbox-image"
+                        />
+
+                        <span>{lightbox.fileName}</span>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

@@ -107,8 +107,8 @@ public sealed class MessagesController : ControllerBase
     /// <returns>A result indicating the outcome of the upload operation.</returns>
     [HttpPost("attachments")]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(110 * 1024 * 1024)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 110 * 1024 * 1024)]
+    [RequestSizeLimit(160 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 160 * 1024 * 1024)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -117,27 +117,47 @@ public sealed class MessagesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UploadAttachment(
         Guid channelId,
-        [FromForm] IFormFile file,
+        [FromForm] List<IFormFile> files,
+        [FromForm] string? content,
         CancellationToken cancellationToken)
     {
-        if (file is null || file.Length == 0)
-            return BadRequest(new { error = "A non-empty file is required." });
+        var uploads = new List<UploadMessageAttachmentFile>(files.Count);
+        var streams = new List<Stream>(files.Count);
 
-        await using var stream = file.OpenReadStream();
+        try
+        {
+            foreach (var file in files)
+            {
+                var stream = file.OpenReadStream();
+                streams.Add(stream);
 
-        var id = await _sender.Send(
-            new UploadMessageAttachmentCommand(
-                channelId,
-                file.FileName,
-                file.ContentType,
-                file.Length,
-                stream),
-            cancellationToken);
+                uploads.Add(new UploadMessageAttachmentFile(
+                    file.FileName,
+                    file.ContentType,
+                    file.Length,
+                    stream));
+            }
 
-        await _messageHub.Clients
-            .Group(MessageHub.GetChannelGroupName(channelId))
-            .SendAsync("MessageCreated", new { Id = id, ChannelId = channelId }, cancellationToken);
+            var id = await _sender.Send(
+                new UploadMessageAttachmentCommand(
+                    channelId,
+                    content,
+                    uploads),
+                cancellationToken);
 
-        return StatusCode(StatusCodes.Status201Created, new { id });
+            await _messageHub.Clients
+                .Group(MessageHub.GetChannelGroupName(channelId))
+                .SendAsync(
+                    "MessageCreated",
+                    new { Id = id, ChannelId = channelId },
+                    cancellationToken);
+
+            return StatusCode(StatusCodes.Status201Created, new { id });
+        }
+        finally
+        {
+            foreach (var stream in streams)
+                await stream.DisposeAsync();
+        }
     }
 }
