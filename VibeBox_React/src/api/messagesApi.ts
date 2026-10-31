@@ -51,6 +51,15 @@ export const messagesApi = {
 
         return response.data;
     },
+    
+    async deleteMessage(
+        channelId: string,
+        messageId: string,
+    ): Promise<void> {
+        await apiClient.delete(
+            `/channels/${channelId}/messages/${messageId}`,
+        );
+    },
 
     uploadAttachments: (
         channelId: string,

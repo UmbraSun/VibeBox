@@ -80,4 +80,20 @@ public sealed class MessageRepository : IMessageRepository
                 attachment => attachment.Id == attachmentId,
                 cancellationToken);
     }
+
+    public async Task<Message?> GetByIdAsync(
+        Guid messageId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.Messages
+            .Include(message => message.Attachments)
+            .FirstOrDefaultAsync(
+                message => message.Id == messageId,
+                cancellationToken);
+    }
+
+    public void Remove(Message message)
+    {
+        _context.Messages.Remove(message);
+    }
 }

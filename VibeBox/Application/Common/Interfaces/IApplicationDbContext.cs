@@ -13,6 +13,13 @@ public interface IApplicationDbContext
     IQueryable<User> Users { get; }
 
     /// <summary>
+    /// Adds a new storage deletion outbox message to the database context.
+    /// </summary>
+    /// <param name="message"></param>
+    void AddStorageDeletionOutboxMessage(
+        StorageDeletionOutboxMessage message);
+
+    /// <summary>
     /// Saves the changes made in the context to the database asynchronously.
     /// </summary>
     /// <param name="cancellationToken"></param>

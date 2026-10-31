@@ -1,45 +1,13 @@
-
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
-import {
-    HubConnectionBuilder,
-    HubConnectionState,
-    LogLevel,
-} from "@microsoft/signalr";
-import {
-    messagesApi,
-    type MessageResponse,
-} from "@/api/messagesApi";
-import { useAuthStore } from "@/features/auth/store/authStore";
+import type { MessageResponse } from "@/api/messagesApi";
+import { messageService } from "@/features/messages/services/messageService";
+import { useMessageHub } from "./useMessageHub";
 
 type ConnectionStatus =
     | "disconnected"
     | "connecting"
     | "connected"
     | "error";
-
-function getErrorMessage(error: unknown, fallback: string): string {
-    if (axios.isAxiosError(error)) {
-        const data = error.response?.data;
-
-        if (data instanceof Blob) {
-            return fallback;
-        }
-
-        return data?.message ?? data?.error ?? fallback;
-    }
-
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    return fallback;
-}
-
-interface MessageCreatedEvent {
-    id: string;
-    channelId: string;
-}
 
 export function useChannelMessages(channelId: string) {
     const [messages, setMessages] = useState<MessageResponse[]>([]);
@@ -51,12 +19,14 @@ export function useChannelMessages(channelId: string) {
 
     const loadMessages = useCallback(async () => {
         try {
-            const result = await messagesApi.getChannelMessages(channelId);
+            const result = await messageService.getMessages(channelId);
             setMessages(result);
             setError(null);
         } catch (requestError: unknown) {
             setError(
-                getErrorMessage(requestError, "Unable to load messages."),
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Unable to load messages.",
             );
         } finally {
             setIsLoading(false);
@@ -67,23 +37,21 @@ export function useChannelMessages(channelId: string) {
         async (content: string) => {
             const normalizedContent = content.trim();
 
-            if (!normalizedContent || isSending) {
-                return;
-            }
+            if (!normalizedContent || isSending) return;
 
             setIsSending(true);
             setError(null);
 
             try {
-                await messagesApi.sendMessage(channelId, {
-                    content: normalizedContent,
-                });
-
+                await messageService.sendMessage(channelId, normalizedContent);
                 await loadMessages();
             } catch (requestError: unknown) {
-                setError(
-                    getErrorMessage(requestError, "Unable to send message."),
-                );
+                const message =
+                    requestError instanceof Error
+                        ? requestError.message
+                        : "Unable to send message.";
+
+                setError(message);
                 throw requestError;
             } finally {
                 setIsSending(false);
@@ -100,21 +68,19 @@ export function useChannelMessages(channelId: string) {
             setError(null);
 
             try {
-                await messagesApi.uploadAttachments(
+                await messageService.sendAttachments(
                     channelId,
                     files,
                     content,
                 );
-
                 await loadMessages();
             } catch (requestError: unknown) {
-                setError(
-                    getErrorMessage(
-                        requestError,
-                        "Unable to upload attachments.",
-                    ),
-                );
+                const message =
+                    requestError instanceof Error
+                        ? requestError.message
+                        : "Unable to upload attachments.";
 
+                setError(message);
                 throw requestError;
             } finally {
                 setIsSending(false);
@@ -123,176 +89,68 @@ export function useChannelMessages(channelId: string) {
         [channelId, isSending, loadMessages],
     );
 
-    useEffect(() => {
-        let active = true;
-        let connection:
-            | ReturnType<HubConnectionBuilder["build"]>
-            | null = null;
+    const deleteMessage = useCallback(
+        async (messageId: string) => {
+            setError(null);
 
+            try {
+                await messageService.deleteMessage(channelId, messageId);
+
+                setMessages((currentMessages) =>
+                    currentMessages.filter(
+                        (message) => message.id !== messageId,
+                    ),
+                );
+            } catch (requestError: unknown) {
+                const message =
+                    requestError instanceof Error
+                        ? requestError.message
+                        : "Unable to delete message.";
+
+                setError(message);
+                throw requestError;
+            }
+        },
+        [channelId],
+    );
+
+    const handleMessageCreated = useCallback(() => {
+        void loadMessages();
+    }, [loadMessages]);
+
+    const handleMessageDeleted = useCallback((messageId: string) => {
+        setMessages((currentMessages) =>
+            currentMessages.filter((message) => message.id !== messageId),
+        );
+    }, []);
+
+    const handleConnected = useCallback(() => {
+        void loadMessages();
+    }, [loadMessages]);
+
+    const handleStatusChange = useCallback((status: ConnectionStatus) => {
+        setConnectionStatus(status);
+    }, []);
+
+    const handleHubError = useCallback((message: string) => {
+        setError(message);
+        setIsLoading(false);
+    }, []);
+
+    useEffect(() => {
         setMessages([]);
         setIsLoading(true);
         setError(null);
-        setConnectionStatus("connecting");
-
-        async function refreshMessages() {
-            try {
-                const result =
-                    await messagesApi.getChannelMessages(channelId);
-
-                if (active) {
-                    setMessages(result);
-                    setError(null);
-                }
-            } catch (requestError: unknown) {
-                if (active) {
-                    setError(
-                        getErrorMessage(
-                            requestError,
-                            "Unable to refresh messages.",
-                        ),
-                    );
-                }
-            } finally {
-                if (active) {
-                    setIsLoading(false);
-                }
-            }
-        }
-
-        async function startConnection() {
-            const hubUrl = import.meta.env.VITE_MESSAGE_HUB_URL;
-
-            if (!hubUrl) {
-                if (active) {
-                    setConnectionStatus("error");
-                    setError("VITE_MESSAGE_HUB_URL is not configured.");
-                    setIsLoading(false);
-                }
-
-                return;
-            }
-
-            const target = new HubConnectionBuilder()
-                .withUrl(hubUrl, {
-                    accessTokenFactory: () =>
-                        useAuthStore.getState().accessToken ?? "",
-                })
-                .withAutomaticReconnect()
-                .configureLogging(LogLevel.Information)
-                .build();
-
-            connection = target;
-
-            target.on(
-                "MessageCreated",
-                (event: MessageCreatedEvent) => {
-                    if (
-                        !active ||
-                        event.channelId.toLowerCase() !== channelId.toLowerCase()
-                    ) {
-                        return;
-                    }
-
-                    void refreshMessages();
-                },
-            );
-
-            async function joinChannel() {
-                if (
-                    !active ||
-                    target.state !== HubConnectionState.Connected
-                ) {
-                    return;
-                }
-
-                await target.invoke("JoinChannel", channelId);
-
-                if (active) {
-                    setConnectionStatus("connected");
-                }
-            }
-
-            target.onreconnecting(() => {
-                if (active) {
-                    setConnectionStatus("connecting");
-                }
-            });
-
-            target.onreconnected(async () => {
-                try {
-                    await joinChannel();
-                    await refreshMessages();
-                } catch (joinError: unknown) {
-                    console.error(
-                        "[Messages] Failed to rejoin channel",
-                        joinError,
-                    );
-
-                    if (active) {
-                        setConnectionStatus("error");
-                    }
-                }
-            });
-
-            target.onclose(() => {
-                if (active) {
-                    setConnectionStatus("disconnected");
-                }
-            });
-
-            try {
-                await target.start();
-
-                if (!active) {
-                    await target.stop();
-                    return;
-                }
-
-                await joinChannel();
-                await refreshMessages();
-            } catch (connectionError: unknown) {
-                console.error(
-                    "[Messages] SignalR connection failed",
-                    connectionError,
-                );
-
-                if (active) {
-                    setConnectionStatus("error");
-                    setError(
-                        getErrorMessage(
-                            connectionError,
-                            "Unable to connect to the message hub.",
-                        ),
-                    );
-                    setIsLoading(false);
-                }
-            }
-        }
-
-        void startConnection();
-
-        return () => {
-            active = false;
-
-            const target = connection;
-
-            if (target) {
-                void (async () => {
-                    try {
-                        if (
-                            target.state === HubConnectionState.Connected
-                        ) {
-                            await target.invoke("LeaveChannel", channelId);
-                        }
-                    } catch {
-                        // The connection may already be closed or reconnecting.
-                    } finally {
-                        await target.stop();
-                    }
-                })();
-            }
-        };
     }, [channelId]);
+
+    useMessageHub({
+        channelId,
+        onMessageCreated: handleMessageCreated,
+        onMessageDeleted: handleMessageDeleted,
+        onConnected: handleConnected,
+        onStatusChange: handleStatusChange,
+        onError: handleHubError,
+    });
 
     return {
         messages,
@@ -302,6 +160,7 @@ export function useChannelMessages(channelId: string) {
         error,
         sendMessage,
         sendAttachments,
+        deleteMessage,
         reloadMessages: loadMessages,
     };
 }
