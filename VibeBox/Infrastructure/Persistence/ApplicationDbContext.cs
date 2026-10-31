@@ -29,7 +29,15 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 
     public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
 
+    public DbSet<StorageDeletionOutboxMessage> StorageDeletionOutboxMessages => Set<StorageDeletionOutboxMessage>();
+
     IQueryable<User> IApplicationDbContext.Users => Users;
+
+    public void AddStorageDeletionOutboxMessage(
+        StorageDeletionOutboxMessage message)
+    {
+        StorageDeletionOutboxMessages.Add(message);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

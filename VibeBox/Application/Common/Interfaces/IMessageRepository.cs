@@ -41,4 +41,20 @@ public interface IMessageRepository
     Task<MessageAttachment?> GetAttachmentByIdAsync(
         Guid attachmentId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a message by its unique identifier.
+    /// </summary>
+    /// <param name="messageId">The unique identifier of the message to retrieve.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the message if found; otherwise, null. </returns>
+    Task<Message?> GetByIdAsync(
+        Guid messageId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes a message from the repository.
+    /// </summary>
+    /// <param name="message">The message to remove.</param>
+    void Remove(Message message);
 }

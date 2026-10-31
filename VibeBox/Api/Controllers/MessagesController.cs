@@ -1,5 +1,6 @@
 ﻿using Api.Contracts.Messages;
 using Api.Hubs;
+using Application.Features.Messages.Commands.DeleteMessage;
 using Application.Features.Messages.Commands.SendMessage;
 using Application.Features.Messages.Commands.UploadMessageAttachment;
 using Application.Features.Messages.Queries.GetChannelMessages;
@@ -159,5 +160,36 @@ public sealed class MessagesController : ControllerBase
             foreach (var stream in streams)
                 await stream.DisposeAsync();
         }
+    }
+
+    /// <summary>
+    /// Deletes a message from the specified channel. Returns a 204 No Content response upon successful deletion. If the message does not exist or the user is not authorized to delete it, appropriate error responses will be returned.
+    /// </summary>
+    /// <param name="channelId">The ID of the channel from which to delete the message.</param>
+    /// <param name="messageId">The ID of the message to delete.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns></returns>
+    [HttpDelete("{messageId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        Guid channelId,
+        Guid messageId,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(
+            new DeleteMessageCommand(channelId, messageId),
+            cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetChannelGroupName(channelId))
+            .SendAsync(
+                "MessageDeleted",
+                new { Id = messageId, ChannelId = channelId },
+                cancellationToken);
+
+        return NoContent();
     }
 }

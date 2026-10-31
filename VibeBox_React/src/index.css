@@ -735,3 +735,29 @@ a:hover {
     font-size: 36px;
     cursor: pointer;
 }
+
+.channel-chat-message-author {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.channel-chat-delete-button {
+    padding: 3px 8px;
+    border: 1px solid #663333;
+    border-radius: 6px;
+    background: transparent;
+    color: #e57373;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.channel-chat-delete-button:hover:not(:disabled) {
+    background: #3a2020;
+}
+
+.channel-chat-delete-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

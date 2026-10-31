@@ -2,6 +2,7 @@
 using Amazon.S3;
 using Application.Common.Interfaces;
 using Application.Common.Settings;
+using Infrastructure.BackgroundServices;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Repositories;
 using Infrastructure.Security;
@@ -70,6 +71,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
         services.AddScoped<ISpaceRepository, SpaceRepository>();
         services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<IStorageDeletionOutboxRepository, StorageDeletionOutboxRepository>();
+
+        services.AddHostedService<StorageDeletionOutboxWorker>();
 
         return services;
     }
