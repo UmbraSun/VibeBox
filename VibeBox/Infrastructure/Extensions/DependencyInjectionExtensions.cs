@@ -65,8 +65,6 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<ITokenService, JwtTokenService>();
-        services.AddScoped<IRoomRepository, RoomRepository>();
-        services.AddScoped<IRoomParticipantRepository, RoomParticipantRepository>();
         services.Configure<LiveKitSettings>(configuration.GetSection(LiveKitSettings.SectionName));
         services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
         services.AddScoped<ISpaceRepository, SpaceRepository>();

@@ -25,7 +25,6 @@ public static class WebApplicationExtensions
         app.UseAuthorization();
 
         app.MapControllers();
-        app.MapHub<CallSignalingHub>("/hubs/call-signaling");
         app.MapHub<MessageHub>("/hubs/messages");
 
         return app;

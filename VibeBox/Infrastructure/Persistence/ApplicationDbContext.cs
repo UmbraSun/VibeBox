@@ -15,10 +15,6 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-    public DbSet<Room> Rooms => Set<Room>();
-
-    public DbSet<RoomParticipant> RoomParticipants => Set<RoomParticipant>();
-
     public DbSet<Space> Spaces => Set<Space>();
 
     public DbSet<SpaceMember> SpaceMembers => Set<SpaceMember>();

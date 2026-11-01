@@ -18,10 +18,11 @@ public sealed class LiveKitTokenService : ILiveKitTokenService
             throw new InvalidOperationException("LiveKit API credentials are not configured.");
     }
 
-    public string CreateToken(Guid roomId, Guid userId)
+    public string CreateToken(Guid roomId, Guid userId, string participantName)
     {
         return new AccessToken(_settings.ApiKey, _settings.ApiSecret)
             .WithIdentity(userId.ToString())
+            .WithName(participantName)
             .WithGrants(new VideoGrants
             {
                 RoomJoin = true,

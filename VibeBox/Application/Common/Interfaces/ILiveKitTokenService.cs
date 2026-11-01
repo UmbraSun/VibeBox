@@ -11,8 +11,9 @@ public interface ILiveKitTokenService
     /// <summary>
     /// Creates an access token for a user to join a specific LiveKit room.
     /// </summary>
-    /// <param name="roomId"></param>
-    /// <param name="userId"></param>
-    /// <returns></returns>
-    string CreateToken(Guid roomId, Guid userId);
+    /// <param name="roomId">The ID of the room to join.</param>
+    /// <param name="userId">The ID of the user joining the room.</param>
+    /// <param name="participantName">The name of the participant.</param>
+    /// <returns>The access token for the user.</returns>
+    string CreateToken(Guid roomId, Guid userId, string participantName);
 }
