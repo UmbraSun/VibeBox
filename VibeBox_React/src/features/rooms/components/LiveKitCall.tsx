@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import axios from "axios";
 import {
@@ -7,12 +6,12 @@ import {
     VideoConference,
     type LocalUserChoices,
 } from "@livekit/components-react";
-import { roomsApi } from "@/api/roomsApi";
+import { channelsApi } from "@/api/channelsApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import "@livekit/components-styles";
 
 interface LiveKitCallProps {
-    roomId: string;
+    channelId: string;
 }
 
 interface ConnectionDetails {
@@ -20,8 +19,9 @@ interface ConnectionDetails {
     participantToken: string;
 }
 
-export function LiveKitCall({ roomId }: LiveKitCallProps) {
+export function LiveKitCall({ channelId }: LiveKitCallProps) {
     const accessToken = useAuthStore((state) => state.accessToken);
+
     const defaultUsername = (() => {
         if (!accessToken) return "Guest";
 
@@ -36,7 +36,9 @@ export function LiveKitCall({ roomId }: LiveKitCallProps) {
             return "Guest";
         }
     })();
-    const [connection, setConnection] = useState<ConnectionDetails | null>(null);
+
+    const [connection, setConnection] =
+        useState<ConnectionDetails | null>(null);
     const [choices, setChoices] = useState<LocalUserChoices | null>(null);
     const [isJoining, setIsJoining] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export function LiveKitCall({ roomId }: LiveKitCallProps) {
         setError(null);
 
         try {
-            const result = await roomsApi.getLiveKitToken(roomId);
+            const result = await channelsApi.getLiveKitToken(channelId);
 
             if (!result.serverUrl || !result.participantToken) {
                 throw new Error(
@@ -86,7 +88,10 @@ export function LiveKitCall({ roomId }: LiveKitCallProps) {
                     audio={choices.audioEnabled}
                     video={choices.videoEnabled}
                     onError={(connectionError) => {
-                        console.error("LiveKit connection error:", connectionError);
+                        console.error(
+                            "LiveKit connection error:",
+                            connectionError,
+                        );
                         setError("Unable to establish the video connection.");
                         setConnection(null);
                         setChoices(null);
