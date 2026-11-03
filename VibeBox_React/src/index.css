@@ -503,12 +503,122 @@ a:hover {
   background: #111;
 }
 
-.livekit-call .lk-video-conference {
+.livekit-call__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.livekit-call__conference {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.livekit-call__conference .lk-video-conference {
   height: 100%;
 }
 
-.livekit-call .lk-room-container {
+.livekit-call__conference .lk-room-container {
   background: #111;
+}
+
+.livekit-participants {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid #303030;
+  background: #191919;
+}
+
+.livekit-participants__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px;
+  border-bottom: 1px solid #303030;
+}
+
+.livekit-participants__header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.livekit-participants__header > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: #303030;
+  font-size: 12px;
+}
+
+.livekit-participants__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 8px;
+}
+
+.livekit-participants__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.livekit-participants__item:hover {
+  background: #242424;
+}
+
+.livekit-participants__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #303030;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.livekit-participants__info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+}
+
+.livekit-participants__name {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.livekit-participants__you {
+  color: #999;
+  font-size: 11px;
+}
+
+.livekit-participants__status {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #22c55e;
 }
 
 @media (max-width: 640px) {
@@ -516,6 +626,68 @@ a:hover {
     height: 65vh;
     min-height: 360px;
   }
+
+  .livekit-call__content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .livekit-participants {
+    max-height: 140px;
+    border-top: 1px solid #303030;
+    border-left: none;
+  }
+
+  .livekit-participants__header {
+    padding: 10px 12px;
+  }
+
+  .livekit-participants__list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 6px 8px;
+  }
+
+  .livekit-participants__item {
+    flex-shrink: 0;
+  }
+}
+
+.livekit-participants__item.is-speaking {
+  background: #222b25;
+  outline: 1px solid #285b38;
+}
+
+.livekit-participants__speaking {
+  color: #4ade80;
+  font-size: 11px;
+}
+
+.livekit-participants__devices {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.livekit-participants__device {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.livekit-participants__device.is-enabled {
+  background: #252525;
+  opacity: 1;
+}
+
+.livekit-participants__device.is-disabled {
+  background: #302020;
+  opacity: 0.8;
 }
 
 .channel-chat-messages {

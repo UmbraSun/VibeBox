@@ -1,11 +1,14 @@
+
 import { useState } from "react";
 import axios from "axios";
 import {
     LiveKitRoom,
     PreJoin,
     VideoConference,
+    useParticipants,
     type LocalUserChoices,
 } from "@livekit/components-react";
+import type { Participant } from "livekit-client";
 import { channelsApi } from "@/api/channelsApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import "@livekit/components-styles";
@@ -17,6 +20,94 @@ interface LiveKitCallProps {
 interface ConnectionDetails {
     serverUrl: string;
     participantToken: string;
+}
+
+function LiveKitParticipants() {
+    const participants = useParticipants();
+
+    return (
+        <aside className="livekit-participants">
+            <div className="livekit-participants__header">
+                <h3>Participants</h3>
+                <span>{participants.length}</span>
+            </div>
+
+            <div className="livekit-participants__list">
+                {participants.map((participant: Participant) => {
+                    const name = participant.name || participant.identity;
+                    const initials = name.slice(0, 2).toUpperCase();
+
+                    return (
+                        <div
+                            key={participant.identity}
+                            className={`livekit-participants__item ${participant.isSpeaking
+                                    ? "is-speaking"
+                                    : ""
+                                }`}
+                        >
+                            <div className="livekit-participants__avatar">
+                                {initials}
+                            </div>
+
+                            <div className="livekit-participants__info">
+                                <span className="livekit-participants__name">
+                                    {name}
+                                </span>
+
+                                {participant.isLocal && (
+                                    <span className="livekit-participants__you">
+                                        You
+                                    </span>
+                                )}
+
+                                {participant.isSpeaking && (
+                                    <span className="livekit-participants__speaking">
+                                        Speaking
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="livekit-participants__devices">
+                                <span
+                                    className={`livekit-participants__device ${participant.isMicrophoneEnabled
+                                            ? "is-enabled"
+                                            : "is-disabled"
+                                        }`}
+                                    title={
+                                        participant.isMicrophoneEnabled
+                                            ? "Microphone on"
+                                            : "Microphone off"
+                                    }
+                                >
+                                    {participant.isMicrophoneEnabled ? "🎤" : "🔇"}
+                                </span>
+
+                                <span
+                                    className={`livekit-participants__device ${participant.isCameraEnabled
+                                            ? "is-enabled"
+                                            : "is-disabled"
+                                        }`}
+                                    title={
+                                        participant.isCameraEnabled
+                                            ? "Camera on"
+                                            : "Camera off"
+                                    }
+                                >
+                                    {participant.isCameraEnabled ? "📷" : "🚫"}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+
+                {participants.length === 0 && (
+                    <p className="rooms-message">
+                        No participants yet.
+                    </p>
+                )}
+            </div>
+        </aside>
+    );
 }
 
 export function LiveKitCall({ channelId }: LiveKitCallProps) {
@@ -87,6 +178,11 @@ export function LiveKitCall({ channelId }: LiveKitCallProps) {
                     connect
                     audio={choices.audioEnabled}
                     video={choices.videoEnabled}
+                    onDisconnected={() => {
+                        setConnection(null);
+                        setChoices(null);
+                        setError(null);
+                    }}
                     onError={(connectionError) => {
                         console.error(
                             "LiveKit connection error:",
@@ -97,7 +193,13 @@ export function LiveKitCall({ channelId }: LiveKitCallProps) {
                         setChoices(null);
                     }}
                 >
-                    <VideoConference />
+                    <div className="livekit-call__content">
+                        <div className="livekit-call__conference">
+                            <VideoConference />
+                        </div>
+
+                        <LiveKitParticipants />
+                    </div>
                 </LiveKitRoom>
             </div>
         );
