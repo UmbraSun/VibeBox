@@ -53,6 +53,20 @@ public interface IMessageRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets messages by conversation.
+    /// </summary>
+    /// <param name="conversationId">The unique identifier of the conversation.</param>
+    /// <param name="beforeMessageId">The unique identifier of the message before which to retrieve messages.</param>
+    /// <param name="limit">The maximum number of messages to retrieve.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the list of messages.</returns>
+    Task<IReadOnlyList<Message>> GetByConversationAsync(
+        Guid conversationId,
+        Guid? beforeMessageId,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Removes a message from the repository.
     /// </summary>
     /// <param name="message">The message to remove.</param>

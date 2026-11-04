@@ -1,8 +1,8 @@
-﻿namespace Api.Contracts.Messages;
+﻿namespace Application.Common.Models;
 
 public sealed record MessageResponse(
     Guid Id,
-    Guid ChannelId,
+    Guid? ChannelId,
     Guid SenderId,
     string SenderEmail,
     string? Content,

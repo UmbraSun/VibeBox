@@ -50,17 +50,81 @@ namespace Infrastructure.Migrations
                     b.ToTable("channels", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DirectUserHighId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DirectUserLowId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("LastMessageAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DirectUserHighId");
+
+                    b.HasIndex("LastMessageAtUtc");
+
+                    b.HasIndex("DirectUserLowId", "DirectUserHighId")
+                        .IsUnique()
+                        .HasFilter("\"DirectUserLowId\" IS NOT NULL AND \"DirectUserHighId\" IS NOT NULL");
+
+                    b.ToTable("conversations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_conversations_TypeAndDirectUsers", "(\r\n    \"Type\" = 0\r\n    AND \"Name\" IS NULL\r\n    AND \"DirectUserLowId\" IS NOT NULL\r\n    AND \"DirectUserHighId\" IS NOT NULL\r\n    AND \"DirectUserLowId\" < \"DirectUserHighId\"\r\n)\r\nOR\r\n(\r\n    \"Type\" = 1\r\n    AND \"Name\" IS NOT NULL\r\n    AND \"DirectUserLowId\" IS NULL\r\n    AND \"DirectUserHighId\" IS NULL\r\n)");
+                        });
+                });
+
+            modelBuilder.Entity("Domain.Entities.ConversationMember", b =>
+                {
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("JoinedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastReadAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ConversationId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("conversation_members", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.Message", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ChannelId")
+                    b.Property<Guid?>("ChannelId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Content")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -77,7 +141,12 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ChannelId", "CreatedAtUtc");
 
-                    b.ToTable("messages", (string)null);
+                    b.HasIndex("ConversationId", "CreatedAtUtc");
+
+                    b.ToTable("messages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_messages_ChannelOrConversation", "(\"ChannelId\" IS NOT NULL AND \"ConversationId\" IS NULL)\r\nOR\r\n(\"ChannelId\" IS NULL AND \"ConversationId\" IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Entities.MessageAttachment", b =>
@@ -271,13 +340,49 @@ namespace Infrastructure.Migrations
                     b.Navigation("Space");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Conversation", b =>
+                {
+                    b.HasOne("Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("DirectUserHighId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("DirectUserLowId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Domain.Entities.ConversationMember", b =>
+                {
+                    b.HasOne("Domain.Entities.Conversation", "Conversation")
+                        .WithMany("Members")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Domain.Entities.Message", b =>
                 {
                     b.HasOne("Domain.Entities.Channel", "Channel")
                         .WithMany()
                         .HasForeignKey("ChannelId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Domain.Entities.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Domain.Entities.User", "Sender")
                         .WithMany()
@@ -286,6 +391,8 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Channel");
+
+                    b.Navigation("Conversation");
 
                     b.Navigation("Sender");
                 });
@@ -340,6 +447,13 @@ namespace Infrastructure.Migrations
                     b.Navigation("Space");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Conversation", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("Domain.Entities.Message", b =>

@@ -8,7 +8,16 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
 {
     public void Configure(EntityTypeBuilder<Message> builder)
     {
-        builder.ToTable("messages");
+        builder.ToTable("messages", table =>
+        {
+            table.HasCheckConstraint(
+                "CK_messages_ChannelOrConversation",
+                """
+                ("ChannelId" IS NOT NULL AND "ConversationId" IS NULL)
+                OR
+                ("ChannelId" IS NULL AND "ConversationId" IS NOT NULL)
+                """);
+        });
 
         builder.HasKey(x => x.Id);
 
@@ -17,20 +26,21 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
 
         builder.Property(x => x.Content)
             .HasMaxLength(4000)
-            .IsRequired();
+            .IsRequired(false);
 
         builder.Property(x => x.CreatedAtUtc)
             .IsRequired();
 
         builder.Property(x => x.UpdatedAtUtc);
 
-        builder.Property(x => x.Content)
-            .HasMaxLength(4000)
-            .IsRequired(false);
-
         builder.HasOne(x => x.Channel)
             .WithMany()
             .HasForeignKey(x => x.ChannelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(x => x.Conversation)
+            .WithMany(x => x.Messages)
+            .HasForeignKey(x => x.ConversationId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.Sender)
@@ -39,6 +49,8 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => new { x.ChannelId, x.CreatedAtUtc });
+
+        builder.HasIndex(x => new { x.ConversationId, x.CreatedAtUtc });
 
         builder.HasIndex(x => x.SenderId);
     }

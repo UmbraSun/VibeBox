@@ -1,4 +1,4 @@
-﻿using Api.Contracts.Spaces;
+﻿using Application.Common.Models;
 using Application.Features.Spaces.Commands.AddSpaceMember;
 using Application.Features.Spaces.Commands.CreateChannel;
 using Application.Features.Spaces.Commands.CreateSpace;

@@ -70,6 +70,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ISpaceRepository, SpaceRepository>();
         services.AddScoped<IMessageRepository, MessageRepository>();
         services.AddScoped<IStorageDeletionOutboxRepository, StorageDeletionOutboxRepository>();
+        services.AddScoped<IConversationRepository, ConversationRepository>();
 
         services.AddHostedService<StorageDeletionOutboxWorker>();
 

@@ -1,3 +1,3 @@
-﻿namespace Api.Contracts.Messages;
+﻿namespace Application.Common.Models;
 
 public sealed record SendMessageRequest(string Content);
