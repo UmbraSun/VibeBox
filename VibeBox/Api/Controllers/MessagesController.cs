@@ -1,5 +1,5 @@
-﻿using Api.Contracts.Messages;
-using Api.Hubs;
+﻿using Api.Hubs;
+using Application.Common.Models;
 using Application.Features.Messages.Commands.DeleteMessage;
 using Application.Features.Messages.Commands.SendMessage;
 using Application.Features.Messages.Commands.UploadMessageAttachment;
@@ -83,7 +83,7 @@ public sealed class MessagesController : ControllerBase
 
         var response = messages.Select(message => new MessageResponse(
             message.Id,
-            message.ChannelId,
+            message.ChannelId!.Value,
             message.SenderId,
             message.Sender.Email,
             message.Content,

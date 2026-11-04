@@ -1,4 +1,4 @@
-﻿namespace Api.Contracts.Messages;
+﻿namespace Application.Common.Models;
 
 public sealed record MessageAttachmentResponse(
     Guid Id,

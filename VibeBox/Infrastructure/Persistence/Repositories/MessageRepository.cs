@@ -92,6 +92,54 @@ public sealed class MessageRepository : IMessageRepository
                 cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Message>> GetByConversationAsync(
+        Guid conversationId,
+        Guid? beforeMessageId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.Messages
+            .AsNoTracking()
+            .Where(message => message.ConversationId == conversationId);
+
+        if (beforeMessageId.HasValue)
+        {
+            var cursor = await _context.Messages
+                .AsNoTracking()
+                .Where(message =>
+                    message.Id == beforeMessageId.Value &&
+                    message.ConversationId == conversationId)
+                .Select(message => new
+                {
+                    message.CreatedAtUtc,
+                    message.Id
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (cursor is null)
+            {
+                return Array.Empty<Message>();
+            }
+
+            query = query.Where(message =>
+                message.CreatedAtUtc < cursor.CreatedAtUtc ||
+                (message.CreatedAtUtc == cursor.CreatedAtUtc &&
+                 message.Id.CompareTo(cursor.Id) < 0));
+        }
+
+        var messages = await query
+            .Include(message => message.Sender)
+            .Include(message => message.Attachments)
+            .OrderByDescending(message => message.CreatedAtUtc)
+            .ThenByDescending(message => message.Id)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        messages.Reverse();
+
+        return messages;
+    }
+
     public void Remove(Message message)
     {
         _context.Messages.Remove(message);

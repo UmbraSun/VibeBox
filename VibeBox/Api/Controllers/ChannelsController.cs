@@ -1,4 +1,4 @@
-﻿using Api.Contracts.Rooms;
+﻿using Application.Common.Models;
 using Application.Features.Channels.Commands.CreateLiveKitToken;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;

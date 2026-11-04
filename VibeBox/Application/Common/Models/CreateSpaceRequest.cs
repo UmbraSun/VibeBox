@@ -1,3 +1,3 @@
-﻿namespace Api.Contracts.Spaces;
+﻿namespace Application.Common.Models;
 
 public sealed record CreateSpaceRequest(string Name);

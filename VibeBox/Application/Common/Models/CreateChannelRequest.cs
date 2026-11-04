@@ -1,7 +1,6 @@
-﻿using Domain.Entities;
-using Domain.Enums;
+﻿using Domain.Enums;
 
-namespace Api.Contracts.Spaces;
+namespace Application.Common.Models;
 
 public sealed record CreateChannelRequest(
     string Name,
