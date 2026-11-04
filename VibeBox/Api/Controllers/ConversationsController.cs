@@ -1,10 +1,14 @@
-﻿using Application.Common.Models;
+﻿using Api.Contracts.Conversations;
+using Api.Hubs;
+using Application.Common.Models;
 using Application.Features.Conversations.Commands.CreateDirectConversation;
+using Application.Features.Conversations.Commands.SendConversationMessage;
 using Application.Features.Conversations.Queries.GetConversationMessages;
 using Application.Features.Conversations.Queries.GetMyConversations;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Api.Controllers;
 
@@ -17,10 +21,13 @@ namespace Api.Controllers;
 public sealed class ConversationsController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly IHubContext<MessageHub> _messageHub;
 
-    public ConversationsController(ISender sender)
+    public ConversationsController(ISender sender, 
+        IHubContext<MessageHub> messageHub)
     {
         _sender = sender;
+        _messageHub = messageHub;
     }
 
     /// <summary>
@@ -80,5 +87,35 @@ public sealed class ConversationsController : ControllerBase
             cancellationToken);
 
         return Ok(messages);
+    }
+
+    /// <summary>
+    /// Sends a message in a specific conversation.
+    /// </summary>
+    /// <param name="conversationId">The ID of the conversation in which to send the message.</param>
+    /// <param name="request">The request containing the message content.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The ID of the sent message.</returns>
+    [HttpPost("{conversationId:guid}/messages")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SendMessage(
+        Guid conversationId,
+        [FromBody] SendConversationMessageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var id = await _sender.Send(
+            new SendConversationMessageCommand(
+                conversationId,
+                request.Content),
+            cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetConversationGroupName(conversationId))
+            .SendAsync(
+                "MessageCreated",
+                new { Id = id, ConversationId = conversationId },
+                cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created, new { id });
     }
 }
