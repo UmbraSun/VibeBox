@@ -9,10 +9,14 @@ namespace Api.Hubs;
 public sealed class MessageHub : Hub
 {
     private readonly ISpaceRepository _spaceRepository;
+    private readonly IConversationRepository _conversationRepository;
 
-    public MessageHub(ISpaceRepository spaceRepository)
+    public MessageHub(
+        ISpaceRepository spaceRepository,
+        IConversationRepository conversationRepository)
     {
         _spaceRepository = spaceRepository;
+        _conversationRepository = conversationRepository;
     }
 
     public async Task JoinChannel(Guid channelId)
@@ -51,8 +55,37 @@ public sealed class MessageHub : Hub
             Context.ConnectionAborted);
     }
 
+    public async Task JoinConversation(Guid conversationId)
+    {
+        var userId = GetUserId();
+
+        var conversation = await _conversationRepository.GetByIdForMemberAsync(
+            conversationId,
+            userId,
+            Context.ConnectionAborted);
+
+        if (conversation is null)
+            throw new HubException("Conversation was not found.");
+
+        await Groups.AddToGroupAsync(
+            Context.ConnectionId,
+            GetConversationGroupName(conversationId),
+            Context.ConnectionAborted);
+    }
+
+    public async Task LeaveConversation(Guid conversationId)
+    {
+        await Groups.RemoveFromGroupAsync(
+            Context.ConnectionId,
+            GetConversationGroupName(conversationId),
+            Context.ConnectionAborted);
+    }
+
     public static string GetChannelGroupName(Guid channelId)
         => $"channel:{channelId}";
+
+    public static string GetConversationGroupName(Guid conversationId)
+        => $"conversation:{conversationId}";
 
     private Guid GetUserId()
     {
