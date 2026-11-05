@@ -5,6 +5,7 @@ import { ChannelsSection } from "@/features/dashboard/components/ChannelsSection
 import { SpaceMembersSection } from "@/features/dashboard/components/SpaceMembersSection";
 import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
 import { ChannelChat } from "@/features/messages/components/ChannelChat";
+import { DirectMessagesSection } from "@/features/conversations/components/DirectMessagesSection";
 import { LiveKitCall } from "@/features/rooms/components/LiveKitCall";
 
 export function DashboardPage() {
@@ -22,6 +23,8 @@ export function DashboardPage() {
                 <p className="auth-description">
                     Create spaces, chat in text channels, or join voice channels.
                 </p>
+
+                <DirectMessagesSection />
 
                 <SpacesSection
                     spaces={dashboard.spaces}

@@ -933,3 +933,182 @@ a:hover {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.direct-messages-section {
+  margin-bottom: 32px;
+}
+
+.direct-messages-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+  margin-top: 20px;
+  min-height: 420px;
+}
+
+.direct-messages-sidebar {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.direct-messages-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.direct-messages-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  color: #eee;
+  background: #111;
+  border: 1px solid #303030;
+  border-radius: 8px;
+  outline: none;
+}
+
+.direct-messages-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: #111;
+  border: 1px solid #303030;
+  border-radius: 8px;
+}
+
+.direct-messages-search-results button,
+.direct-message-item {
+  width: 100%;
+  padding: 10px;
+  color: #ddd;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.direct-messages-search-results button:hover,
+.direct-message-item:hover,
+.direct-message-item.active {
+  background: #292929;
+}
+
+.direct-messages-search-results button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.direct-messages-list h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #999;
+}
+
+.direct-message-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.direct-message-item small,
+.direct-messages-hint {
+  color: #888;
+  font-size: 12px;
+}
+
+.direct-messages-error {
+  color: #ff7777;
+  font-size: 13px;
+}
+
+.direct-messages-chat {
+  min-width: 0;
+}
+
+.direct-messages-chat > .rooms-section {
+  margin-top: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.direct-messages-empty {
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+  color: #888;
+  border: 1px dashed #303030;
+  border-radius: 12px;
+}
+
+@media (max-width: 760px) {
+  .direct-messages-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .direct-messages-chat {
+    min-height: 400px;
+  }
+}
+
+.direct-messages-hint {
+    margin: 0;
+    color: #888;
+    font-size: 13px;
+}
+
+.direct-messages-error {
+    margin: 0;
+    color: #ff7777;
+    font-size: 13px;
+}
+
+@media (max-width: 760px) {
+    .direct-messages-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .direct-messages-chat {
+        min-height: 350px;
+    }
+}
+
+.direct-message-item {
+    align-items: center;
+}
+
+.direct-message-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.direct-message-item-name {
+    overflow: hidden;
+    color: #eee;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.direct-message-item-preview {
+    overflow: hidden;
+    max-width: 190px;
+    color: #888;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.direct-message-item-date {
+    align-self: flex-start;
+    color: #777;
+    font-size: 11px;
+}

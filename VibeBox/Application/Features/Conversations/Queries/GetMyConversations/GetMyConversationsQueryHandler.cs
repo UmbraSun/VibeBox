@@ -38,6 +38,11 @@ public sealed class GetMyConversationsQueryHandler
                     member => member.UserId != currentUserId)
                 : null;
 
+            var lastMessage = conversation.Messages
+                .OrderByDescending(message => message.CreatedAtUtc)
+                .ThenByDescending(message => message.Id)
+                .FirstOrDefault();
+
             return new ConversationSummaryResponse(
                 conversation.Id,
                 conversation.Type.ToString(),
@@ -46,7 +51,11 @@ public sealed class GetMyConversationsQueryHandler
                 conversation.LastMessageAtUtc,
                 otherMember?.UserId,
                 otherMember?.User.Email,
-                currentMember.LastReadAtUtc);
+                currentMember.LastReadAtUtc,
+                lastMessage?.Content,
+                lastMessage?.CreatedAtUtc,
+                lastMessage?.SenderId,
+                lastMessage?.Attachments.Count > 0);
         }).ToList();
     }
 }
