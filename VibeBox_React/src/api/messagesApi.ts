@@ -10,7 +10,7 @@ export interface MessageAttachmentResponse {
 
 export interface MessageResponse {
     id: string;
-    channelId: string;
+    channelId: string | null;
     senderId: string;
     senderEmail: string;
     content: string | null;

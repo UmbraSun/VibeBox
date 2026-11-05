@@ -33,19 +33,22 @@ public sealed class UploadMessageAttachmentCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IApplicationDbContext _context;
     private readonly IObjectStorageService _objectStorage;
+    private readonly IConversationRepository _conversationRepository;
 
     public UploadMessageAttachmentCommandHandler(
         IMessageRepository messageRepository,
         ISpaceRepository spaceRepository,
         ICurrentUserService currentUserService,
         IApplicationDbContext context,
-        IObjectStorageService objectStorage)
+        IObjectStorageService objectStorage,
+        IConversationRepository conversationRepository)
     {
         _messageRepository = messageRepository;
         _spaceRepository = spaceRepository;
         _currentUserService = currentUserService;
         _context = context;
         _objectStorage = objectStorage;
+        _conversationRepository = conversationRepository;
     }
 
     public async Task<Guid> Handle(
@@ -60,25 +63,49 @@ public sealed class UploadMessageAttachmentCommandHandler
             throw new ValidationException(
                 "Message content must not exceed 4000 characters.");
 
-        var channel = await _spaceRepository.GetChannelByIdAsync(
-            request.ChannelId,
-            cancellationToken);
+        if (request.ChannelId.HasValue == request.ConversationId.HasValue)
+        {
+            throw new ValidationException(
+                "Exactly one of ChannelId or ConversationId must be specified.");
+        }
 
-        if (channel is null)
-            throw new KeyNotFoundException("Channel was not found.");
+        var currentUserId = _currentUserService.UserId;
 
-        if (channel.Type != ChannelType.Text)
-            throw new ConflictException(
-                "Attachments can only be sent to text channels.");
+        Channel? channel = null;
+        Conversation? conversation = null;
 
-        var member = await _spaceRepository.GetMemberAsync(
-            channel.SpaceId,
-            _currentUserService.UserId,
-            cancellationToken);
+        if (request.ChannelId.HasValue)
+        {
+            channel = await _spaceRepository.GetChannelByIdAsync(
+                request.ChannelId.Value,
+                cancellationToken);
 
-        if (member is null)
-            throw new ForbiddenAccessException(
-                "You are not a member of this space.");
+            if (channel is null)
+                throw new KeyNotFoundException("Channel was not found.");
+
+            if (channel.Type != ChannelType.Text)
+                throw new ConflictException(
+                    "Attachments can only be sent to text channels.");
+
+            var member = await _spaceRepository.GetMemberAsync(
+                channel.SpaceId,
+                currentUserId,
+                cancellationToken);
+
+            if (member is null)
+                throw new ForbiddenAccessException(
+                    "You are not a member of this space.");
+        }
+        else
+        {
+            conversation = await _conversationRepository.GetByIdForMemberAsync(
+                request.ConversationId!.Value,
+                currentUserId,
+                cancellationToken);
+
+            if (conversation is null)
+                throw new KeyNotFoundException("Conversation was not found.");
+        }
 
         if (request.Files.Count == 0 || request.Files.Count > MaxFilesCount)
             throw new ValidationException(
@@ -140,20 +167,30 @@ public sealed class UploadMessageAttachmentCommandHandler
         var messageId = Guid.NewGuid();
         var createdAtUtc = DateTime.UtcNow;
 
-        var message = new Message(
-            messageId,
-            channel.Id,
-            _currentUserService.UserId,
-            content,
-            createdAtUtc);
+        var message = channel is not null
+            ? new Message(
+                messageId,
+                channel.Id,
+                currentUserId,
+                content,
+                createdAtUtc)
+            : Message.CreateForConversation(
+                messageId,
+                conversation!.Id,
+                currentUserId,
+                content,
+                createdAtUtc);
+
+        conversation?.UpdateLastMessageAt(createdAtUtc);
 
         var storageKeys = new List<string>(request.Files.Count);
 
         foreach (var file in request.Files)
         {
             var attachmentId = Guid.NewGuid();
-            var storageKey =
-                $"attachments/{channel.Id}/{messageId}/{attachmentId}";
+            var storageKey = channel is not null
+                ? $"attachments/{channel.Id}/{messageId}/{attachmentId}"
+                : $"attachments/conversations/{conversation!.Id}/{messageId}/{attachmentId}";
 
             var attachment = new MessageAttachment(
                 attachmentId,

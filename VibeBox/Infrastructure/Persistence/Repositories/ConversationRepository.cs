@@ -55,6 +55,11 @@ public sealed class ConversationRepository : IConversationRepository
             .AsNoTracking()
             .Include(conversation => conversation.Members)
                 .ThenInclude(member => member.User)
+            .Include(conversation => conversation.Messages
+                .OrderByDescending(message => message.CreatedAtUtc)
+                .ThenByDescending(message => message.Id)
+                .Take(1))
+                .ThenInclude(message => message.Attachments)
             .Where(conversation =>
                 conversation.Members.Any(member => member.UserId == userId))
             .OrderByDescending(conversation =>
@@ -148,5 +153,16 @@ public sealed class ConversationRepository : IConversationRepository
 
             throw;
         }
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetMemberIdsAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.ConversationMembers
+            .AsNoTracking()
+            .Where(member => member.ConversationId == conversationId)
+            .Select(member => member.UserId)
+            .ToListAsync(cancellationToken);
     }
 }

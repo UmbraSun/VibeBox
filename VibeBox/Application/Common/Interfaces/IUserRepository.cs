@@ -46,4 +46,18 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(
         Guid userId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Searches for users by their email, excluding a specific user ID, and limits the number of results returned.
+    /// </summary>
+    /// <param name="email">The email to search for.</param>
+    /// <param name="excludedUserId">The ID of the user to exclude from the search.</param>
+    /// <param name="limit">The maximum number of results to return.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns></returns>
+    Task<IReadOnlyList<User>> SearchByEmailAsync(
+        string email,
+        Guid excludedUserId,
+        int limit,
+        CancellationToken cancellationToken);
 }

@@ -96,4 +96,19 @@ public sealed class MessageHub : Hub
 
         throw new HubException("Authenticated user ID is unavailable.");
     }
+
+    public override async Task OnConnectedAsync()
+    {
+        var userId = GetUserId();
+
+        await Groups.AddToGroupAsync(
+            Context.ConnectionId,
+            GetUserGroupName(userId),
+            Context.ConnectionAborted);
+
+        await base.OnConnectedAsync();
+    }
+
+    public static string GetUserGroupName(Guid userId)
+        => $"user:{userId}";
 }

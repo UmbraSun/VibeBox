@@ -44,4 +44,20 @@ public sealed class UserRepository : IUserRepository
         return _context.Users
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<User>> SearchByEmailAsync(
+        string email,
+        Guid excludedUserId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .Where(x =>
+                x.Id != excludedUserId &&
+                EF.Functions.ILike(x.Email, $"%{email}%"))
+            .OrderBy(x => x.Email)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
 }

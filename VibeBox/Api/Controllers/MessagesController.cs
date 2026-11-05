@@ -142,6 +142,7 @@ public sealed class MessagesController : ControllerBase
             var id = await _sender.Send(
                 new UploadMessageAttachmentCommand(
                     channelId,
+                    null,
                     content,
                     uploads),
                 cancellationToken);
@@ -180,7 +181,7 @@ public sealed class MessagesController : ControllerBase
         CancellationToken cancellationToken)
     {
         await _sender.Send(
-            new DeleteMessageCommand(channelId, messageId),
+            new DeleteMessageCommand(channelId, null, messageId),
             cancellationToken);
 
         await _messageHub.Clients

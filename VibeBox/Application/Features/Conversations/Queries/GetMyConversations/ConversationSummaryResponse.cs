@@ -8,4 +8,8 @@ public sealed record ConversationSummaryResponse(
     DateTime? LastMessageAtUtc,
     Guid? OtherUserId,
     string? OtherUserEmail,
-    DateTime? LastReadAtUtc);
+    DateTime? LastReadAtUtc,
+    string? LastMessageContent,
+    DateTime? LastMessageCreatedAtUtc,
+    Guid? LastMessageSenderId,
+    bool LastMessageHasAttachments);

@@ -2,6 +2,7 @@ import {
     messagesApi,
     type MessageResponse,
 } from "@/api/messagesApi";
+import { conversationsApi } from "@/api/conversationsApi";
 import { getErrorMessage } from "@/features/messages/utils/errorUtils";
 
 export const messageService = {
@@ -15,9 +16,34 @@ export const messageService = {
         }
     },
 
+    async getConversationMessages(
+        conversationId: string,
+    ): Promise<MessageResponse[]> {
+        try {
+            return await conversationsApi.getMessages(conversationId);
+        } catch (error: unknown) {
+            throw new Error(
+                getErrorMessage(error, "Unable to load messages."),
+            );
+        }
+    },
+
     async sendMessage(channelId: string, content: string): Promise<void> {
         try {
             await messagesApi.sendMessage(channelId, { content });
+        } catch (error: unknown) {
+            throw new Error(
+                getErrorMessage(error, "Unable to send message."),
+            );
+        }
+    },
+
+    async sendConversationMessage(
+        conversationId: string,
+        content: string,
+    ): Promise<void> {
+        try {
+            await conversationsApi.sendMessage(conversationId, { content });
         } catch (error: unknown) {
             throw new Error(
                 getErrorMessage(error, "Unable to send message."),
@@ -39,12 +65,43 @@ export const messageService = {
         }
     },
 
+    async sendConversationAttachments(
+        conversationId: string,
+        files: File[],
+        content?: string,
+    ): Promise<void> {
+        try {
+            await conversationsApi.uploadAttachments(
+                conversationId,
+                files,
+                content,
+            );
+        } catch (error: unknown) {
+            throw new Error(
+                getErrorMessage(error, "Unable to upload attachments."),
+            );
+        }
+    },
+
     async deleteMessage(
         channelId: string,
         messageId: string,
     ): Promise<void> {
         try {
             await messagesApi.deleteMessage(channelId, messageId);
+        } catch (error: unknown) {
+            throw new Error(
+                getErrorMessage(error, "Unable to delete message."),
+            );
+        }
+    },
+
+    async deleteConversationMessage(
+        conversationId: string,
+        messageId: string,
+    ): Promise<void> {
+        try {
+            await conversationsApi.deleteMessage(conversationId, messageId);
         } catch (error: unknown) {
             throw new Error(
                 getErrorMessage(error, "Unable to delete message."),

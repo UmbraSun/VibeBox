@@ -82,4 +82,14 @@ public interface IConversationRepository
     Task<Guid> CreateDirectIfNotExistsAsync(
         Conversation conversation,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the IDs of all members in a specific conversation.
+    /// </summary>
+    /// <param name="conversationId">The unique identifier of the conversation.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task<IReadOnlyList<Guid>> GetMemberIdsAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken);
 }
