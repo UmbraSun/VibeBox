@@ -1,7 +1,6 @@
 import {
     useCallback,
     useEffect,
-    useMemo,
     useRef,
     useState,
 } from "react";
@@ -22,19 +21,9 @@ export function DirectMessagesSection() {
 
     const [hubError, setHubError] = useState<string | null>(null);
 
-    const conversationIdsKey = conversations
-        .map((conversation) => conversation.id)
-        .sort()
-        .join("|");
-
-    const conversationIds = useMemo(
-        () => conversationIdsKey ? conversationIdsKey.split("|") : [],
-        [conversationIdsKey],
-    );
-
     const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleConversationMessageChanged = useCallback(
+    const handleConversationUpdated = useCallback(
         (_conversationId: string) => {
             if (refreshTimer.current) {
                 clearTimeout(refreshTimer.current);
@@ -62,17 +51,12 @@ export function DirectMessagesSection() {
 
     const handleHubStatusChange = useCallback(() => { }, []);
     const handleHubConnected = useCallback(() => { }, []);
-    const handleHubMessageCreated = useCallback(() => { }, []);
-    const handleHubMessageDeleted = useCallback((_messageId: string) => { }, []);
 
     useMessageHub({
-        conversationIds,
-        onMessageCreated: handleHubMessageCreated,
-        onMessageDeleted: handleHubMessageDeleted,
         onConnected: handleHubConnected,
         onStatusChange: handleHubStatusChange,
         onError: handleHubError,
-        onConversationMessageChanged: handleConversationMessageChanged,
+        onConversationUpdated: handleConversationUpdated,
     });
 
     const {
@@ -88,6 +72,27 @@ export function DirectMessagesSection() {
         useState<string | null>(null);
     const [selectedConversationName, setSelectedConversationName] =
         useState("");
+
+    const previousConversationIdsRef = useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        const currentIds = new Set(
+            conversations.map((conversation) => conversation.id.toLowerCase()),
+        );
+
+        const selectedId = selectedConversationId?.toLowerCase();
+
+        if (
+            selectedId &&
+            previousConversationIdsRef.current.has(selectedId) &&
+            !currentIds.has(selectedId)
+        ) {
+            setSelectedConversationId(null);
+            setSelectedConversationName("");
+        }
+
+        previousConversationIdsRef.current = currentIds;
+    });
 
     useEffect(() => {
         if (
