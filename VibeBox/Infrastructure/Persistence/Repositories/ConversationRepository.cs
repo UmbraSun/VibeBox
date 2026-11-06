@@ -61,7 +61,8 @@ public sealed class ConversationRepository : IConversationRepository
                 .Take(1))
                 .ThenInclude(message => message.Attachments)
             .Where(conversation =>
-                conversation.Members.Any(member => member.UserId == userId))
+                conversation.Members.Any(member => member.UserId == userId)
+                && conversation.Messages.Any())
             .OrderByDescending(conversation =>
                 conversation.LastMessageAtUtc ?? conversation.CreatedAtUtc)
             .ToListAsync(cancellationToken);

@@ -23,12 +23,13 @@ interface UseMessageHubOptions {
     channelId?: string;
     conversationId?: string;
     conversationIds?: string[];
-    onMessageCreated: () => void;
-    onMessageDeleted: (messageId: string) => void;
+    onMessageCreated?: () => void;
+    onMessageDeleted?: (messageId: string) => void;
     onConnected: () => void;
     onStatusChange: (status: ConnectionStatus) => void;
     onError: (message: string) => void;
     onConversationMessageChanged?: (conversationId: string) => void;
+    onConversationUpdated?: (conversationId: string) => void;
 }
 
 export function useMessageHub({
@@ -41,18 +42,22 @@ export function useMessageHub({
     onStatusChange,
     onError,
     onConversationMessageChanged,
+    onConversationUpdated,
 }: UseMessageHubOptions) {
     useEffect(() => {
         const isConversationList = conversationIds !== undefined;
+        const isNotificationOnly = Boolean(onConversationUpdated);
         const isConversation = Boolean(conversationId);
 
-        const targetIds = isConversationList
-            ? conversationIds
-            : [conversationId ?? channelId].filter(
-                  (id): id is string => Boolean(id),
-              );
+        const targetIds = isNotificationOnly
+            ? []
+            : isConversationList
+                ? conversationIds
+                : [conversationId ?? channelId].filter(
+                    (id): id is string => Boolean(id),
+                );
 
-        if (targetIds.length === 0) {
+        if (!isNotificationOnly && targetIds.length === 0) {
             onStatusChange("disconnected");
             return;
         }
@@ -88,7 +93,7 @@ export function useMessageHub({
             if (
                 eventId?.toLowerCase() === targetIds[0].toLowerCase()
             ) {
-                onMessageCreated();
+                onMessageCreated?.();
             }
         }
 
@@ -113,8 +118,14 @@ export function useMessageHub({
             if (
                 eventId?.toLowerCase() === targetIds[0].toLowerCase()
             ) {
-                onMessageDeleted(event.id);
+                onMessageDeleted?.(event.id);
             }
+        }
+
+        function handleConversationUpdated(event: { conversationId: string }) {
+            if (!active) return;
+
+            onConversationUpdated?.(event.conversationId);
         }
 
         onStatusChange("connecting");
@@ -144,6 +155,7 @@ export function useMessageHub({
 
             target.on("MessageCreated", handleMessageCreated);
             target.on("MessageDeleted", handleMessageDeleted);
+            target.on("ConversationUpdated", handleConversationUpdated);
 
             async function joinTargets() {
                 if (
@@ -153,13 +165,15 @@ export function useMessageHub({
                     return;
                 }
 
-                for (const id of targetIds) {
-                    await target.invoke(
-                        isConversationList || isConversation
-                            ? "JoinConversation"
-                            : "JoinChannel",
-                        id,
-                    );
+                if (!isNotificationOnly) {
+                    for (const id of targetIds) {
+                        await target.invoke(
+                            isConversationList || isConversation
+                                ? "JoinConversation"
+                                : "JoinChannel",
+                            id,
+                        );
+                    }
                 }
 
                 if (active) {
@@ -239,7 +253,8 @@ export function useMessageHub({
                 void (async () => {
                     try {
                         if (
-                            target.state === HubConnectionState.Connected
+                            target.state === HubConnectionState.Connected &&
+                            !isNotificationOnly
                         ) {
                             for (const id of targetIds) {
                                 await target.invoke(
@@ -268,5 +283,6 @@ export function useMessageHub({
         onStatusChange,
         onError,
         onConversationMessageChanged,
+        onConversationUpdated,
     ]);
 }
