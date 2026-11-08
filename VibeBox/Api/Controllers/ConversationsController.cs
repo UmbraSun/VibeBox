@@ -2,8 +2,14 @@
 using Api.Hubs;
 using Application.Common.Interfaces;
 using Application.Common.Models;
+using Application.Features.Conversations.Commands.AddConversationMembers;
 using Application.Features.Conversations.Commands.CreateDirectConversation;
+using Application.Features.Conversations.Commands.CreateGroupConversation;
+using Application.Features.Conversations.Commands.LeaveConversation;
+using Application.Features.Conversations.Commands.RemoveConversationMember;
+using Application.Features.Conversations.Commands.RenameConversation;
 using Application.Features.Conversations.Commands.SendConversationMessage;
+using Application.Features.Conversations.Queries.GetConversationDetails;
 using Application.Features.Conversations.Queries.GetConversationMessages;
 using Application.Features.Conversations.Queries.GetMyConversations;
 using Application.Features.Messages.Commands.DeleteMessage;
@@ -231,6 +237,162 @@ public sealed class ConversationsController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>
+    /// Creates a group conversation with the specified name and participants. The current user will be automatically added as a member of the group. Returns the ID of the created group conversation upon success.
+    /// </summary>
+    /// <param name="request">Request</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns></returns>
+    [HttpPost("group")]
+    public async Task<IActionResult> CreateGroup(
+        [FromBody] CreateGroupConversationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var conversationId = await _sender.Send(
+            new CreateGroupConversationCommand(request.Name, request.UserIds),
+            cancellationToken);
+
+        await NotifyConversationUpdatedAsync(conversationId, cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created, new { id = conversationId });
+    }
+
+    /// <summary>
+    /// Gets the details of a specific conversation, including its members and their join dates. Returns a 404 Not Found response if the conversation does not exist or the current user is not a member of the conversation.
+    /// </summary>
+    /// <param name="conversationId">Conversation identificator</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns></returns>
+    [HttpGet("{conversationId:guid}")]
+    public async Task<IActionResult> GetConversationDetails(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new GetConversationDetailsQuery(conversationId),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Adds one or more members to a specific group conversation. The current user must be a member of the conversation to add new members. Returns a 204 No Content response upon successful addition of members. If the conversation does not exist, is not a group conversation, or if any of the specified users are already members, appropriate error responses will be returned.
+    /// </summary>
+    /// <param name="conversationId">Conversation identificator</param>
+    /// <param name="request">Request</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns></returns>
+    [HttpPost("{conversationId:guid}/members")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AddMembers(
+        Guid conversationId,
+        [FromBody] AddConversationMembersRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(
+            new AddConversationMembersCommand(conversationId, request.UserIds),
+            cancellationToken);
+
+        await NotifyConversationUpdatedAsync(conversationId, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Removes a member from a specific conversation. The current user must be a member of the conversation to remove another member. Returns a 204 No Content response upon successful removal of the member. If the conversation does not exist, or if the specified user is not a member of the conversation, appropriate error responses will be returned.
+    /// </summary>
+    /// <param name="conversationId">Conversation identifier</param>
+    /// <param name="userId">User identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns></returns>
+    [HttpDelete("{conversationId:guid}/members/{userId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemoveMember(
+        Guid conversationId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var removedUserId = await _sender.Send(
+            new RemoveConversationMemberCommand(conversationId, userId),
+            cancellationToken);
+
+        await NotifyConversationUpdatedAsync(conversationId, cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetUserGroupName(removedUserId))
+            .SendAsync(
+                "ConversationUpdated",
+                new { ConversationId = conversationId },
+                cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Leave the group
+    /// </summary>
+    /// <param name="conversationId">Conversation identificator</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns></returns>
+    [HttpDelete("{conversationId:guid}/members/me")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> LeaveConversation(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        var userId = await _sender.Send(
+            new LeaveConversationCommand(conversationId),
+            cancellationToken);
+
+        await NotifyConversationUpdatedAsync(conversationId, cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetUserGroupName(userId))
+            .SendAsync(
+                "ConversationUpdated",
+                new { ConversationId = conversationId },
+                cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Rename conversation
+    /// </summary>
+    /// <param name="conversationId">Conversation identificator</param>
+    /// <param name="request">Request</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns></returns>
+    [HttpPatch("{conversationId:guid}/name")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RenameConversation(
+        Guid conversationId,
+        [FromBody] RenameConversationRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(
+            new RenameConversationCommand(conversationId, request.Name),
+            cancellationToken);
+
+        await NotifyConversationUpdatedAsync(conversationId, cancellationToken);
+
+        return NoContent();
+    }    
 
     private async Task NotifyConversationUpdatedAsync(
         Guid conversationId,

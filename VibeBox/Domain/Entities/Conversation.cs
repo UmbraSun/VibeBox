@@ -97,4 +97,54 @@ public sealed class Conversation
         if (LastMessageAtUtc is null || createdAtUtc > LastMessageAtUtc)
             LastMessageAtUtc = createdAtUtc;
     }
+
+    public static Conversation CreateGroup(
+        Guid id,
+        string name,
+        DateTime createdAtUtc)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException(
+                "A group conversation must have a name.",
+                nameof(name));
+        }
+
+        return new Conversation(
+            id,
+            ConversationType.Group,
+            name,
+            createdAtUtc);
+    }
+
+    public void RemoveMember(Guid userId)
+    {
+        var member = Members.FirstOrDefault(x => x.UserId == userId);
+
+        if (member is null)
+            throw new InvalidOperationException("The user is not a member of this conversation.");
+
+        Members.Remove(member);
+    }
+
+    public void Leave(Guid userId)
+    {
+        RemoveMember(userId);
+    }
+
+    public void Rename(string name)
+    {
+        if (Type != ConversationType.Group)
+            throw new InvalidOperationException("Only group conversations can be renamed.");
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("A group name is required.", nameof(name));
+
+        var normalizedName = name.Trim();
+
+        if (normalizedName.Length > 200)
+            throw new ArgumentException("The group name cannot exceed 200 characters.", nameof(name));
+
+        Name = normalizedName;
+    }
 }

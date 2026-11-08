@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import {
     HubConnectionBuilder,
@@ -44,18 +45,23 @@ export function useMessageHub({
     onConversationMessageChanged,
     onConversationUpdated,
 }: UseMessageHubOptions) {
+    // A stable dependency prevents reconnecting on every render.
+    const conversationIdsKey = conversationIds?.join(",") ?? null;
+
     useEffect(() => {
-        const isConversationList = conversationIds !== undefined;
-        const isNotificationOnly = Boolean(onConversationUpdated);
+        const isConversationList = conversationIdsKey !== null;
         const isConversation = Boolean(conversationId);
 
-        const targetIds = isNotificationOnly
-            ? []
-            : isConversationList
-                ? conversationIds
-                : [conversationId ?? channelId].filter(
-                    (id): id is string => Boolean(id),
-                );
+        const targetIds = isConversationList
+            ? conversationIdsKey
+                .split(",")
+                .filter(Boolean)
+            : [conversationId ?? channelId].filter(
+                (id): id is string => Boolean(id),
+            );
+
+        const isNotificationOnly =
+            !isConversationList && !conversationId && !channelId;
 
         if (!isNotificationOnly && targetIds.length === 0) {
             onStatusChange("disconnected");
@@ -90,9 +96,7 @@ export function useMessageHub({
                 ? event.conversationId
                 : event.channelId;
 
-            if (
-                eventId?.toLowerCase() === targetIds[0].toLowerCase()
-            ) {
+            if (eventId?.toLowerCase() === targetIds[0]?.toLowerCase()) {
                 onMessageCreated?.();
             }
         }
@@ -115,14 +119,14 @@ export function useMessageHub({
                 ? event.conversationId
                 : event.channelId;
 
-            if (
-                eventId?.toLowerCase() === targetIds[0].toLowerCase()
-            ) {
+            if (eventId?.toLowerCase() === targetIds[0]?.toLowerCase()) {
                 onMessageDeleted?.(event.id);
             }
         }
 
-        function handleConversationUpdated(event: { conversationId: string }) {
+        function handleConversationUpdated(event: {
+            conversationId: string;
+        }) {
             if (!active) return;
 
             onConversationUpdated?.(event.conversationId);
@@ -165,15 +169,13 @@ export function useMessageHub({
                     return;
                 }
 
-                if (!isNotificationOnly) {
-                    for (const id of targetIds) {
-                        await target.invoke(
-                            isConversationList || isConversation
-                                ? "JoinConversation"
-                                : "JoinChannel",
-                            id,
-                        );
-                    }
+                for (const id of targetIds) {
+                    await target.invoke(
+                        isConversationList || isConversation
+                            ? "JoinConversation"
+                            : "JoinChannel",
+                        id,
+                    );
                 }
 
                 if (active) {
@@ -253,8 +255,7 @@ export function useMessageHub({
                 void (async () => {
                     try {
                         if (
-                            target.state === HubConnectionState.Connected &&
-                            !isNotificationOnly
+                            target.state === HubConnectionState.Connected
                         ) {
                             for (const id of targetIds) {
                                 await target.invoke(
@@ -276,7 +277,7 @@ export function useMessageHub({
     }, [
         channelId,
         conversationId,
-        conversationIds,
+        conversationIdsKey,
         onMessageCreated,
         onMessageDeleted,
         onConnected,

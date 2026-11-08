@@ -92,4 +92,14 @@ public interface IConversationRepository
     Task<IReadOnlyList<Guid>> GetMemberIdsAsync(
         Guid conversationId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a new group conversation with the specified details and returns its unique identifier. This method is intended for scenarios where a new group conversation needs to be created, and it ensures that the conversation is properly initialized and stored in the repository.
+    /// </summary>
+    /// <param name="conversation">The conversation to create.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task<Guid> CreateGroupAsync(
+        Conversation conversation,
+        CancellationToken cancellationToken);
 }
