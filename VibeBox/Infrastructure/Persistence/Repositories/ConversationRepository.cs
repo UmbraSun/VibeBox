@@ -40,6 +40,7 @@ public sealed class ConversationRepository : IConversationRepository
     {
         return await _context.Conversations
             .Include(conversation => conversation.Members)
+                .ThenInclude(member => member.User)
             .FirstOrDefaultAsync(
                 conversation =>
                     conversation.Id == conversationId &&
@@ -62,7 +63,8 @@ public sealed class ConversationRepository : IConversationRepository
                 .ThenInclude(message => message.Attachments)
             .Where(conversation =>
                 conversation.Members.Any(member => member.UserId == userId)
-                && conversation.Messages.Any())
+                && (conversation.Type == ConversationType.Group
+                    || conversation.Messages.Any()))
             .OrderByDescending(conversation =>
                 conversation.LastMessageAtUtc ?? conversation.CreatedAtUtc)
             .ToListAsync(cancellationToken);
@@ -165,5 +167,18 @@ public sealed class ConversationRepository : IConversationRepository
             .Where(member => member.ConversationId == conversationId)
             .Select(member => member.UserId)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Guid> CreateGroupAsync(
+        Conversation conversation,
+        CancellationToken cancellationToken)
+    {
+        await _context.Conversations.AddAsync(
+            conversation,
+            cancellationToken);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return conversation.Id;
     }
 }

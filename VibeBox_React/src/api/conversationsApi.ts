@@ -1,3 +1,4 @@
+
 import { apiClient } from "@/api/apiClient";
 import type { MessageResponse, SendMessageRequest } from "@/api/messagesApi";
 
@@ -16,11 +17,30 @@ export interface ConversationSummaryResponse {
     lastMessageHasAttachments: boolean;
 }
 
+export interface ConversationMemberResponse {
+    userId: string;
+    email: string;
+    joinedAtUtc: string;
+}
+
+export interface ConversationDetailsResponse {
+    id: string;
+    type: string;
+    name: string | null;
+    createdAtUtc: string;
+    currentUserId: string;
+    members: ConversationMemberResponse[];
+}
+
 interface CreateDirectConversationResponse {
     id: string;
 }
 
 interface SendConversationMessageResponse {
+    id: string;
+}
+
+interface CreateGroupConversationResponse {
     id: string;
 }
 
@@ -40,6 +60,65 @@ export const conversationsApi = {
         );
 
         return response.data.id;
+    },
+
+    async createGroup(name: string, userIds: string[]): Promise<string> {
+        const response = await apiClient.post<CreateGroupConversationResponse>(
+            "/conversations/group",
+            {
+                name: name.trim(),
+                userIds,
+            },
+        );
+
+        return response.data.id;
+    },
+
+    async getDetails(
+        conversationId: string,
+    ): Promise<ConversationDetailsResponse> {
+        const response = await apiClient.get<ConversationDetailsResponse>(
+            `/conversations/${conversationId}`,
+        );
+
+        return response.data;
+    },
+
+    async addMembers(
+        conversationId: string,
+        userIds: string[],
+    ): Promise<void> {
+        await apiClient.post(
+            `/conversations/${conversationId}/members`,
+            { userIds },
+        );
+    },
+
+    async removeMember(
+        conversationId: string,
+        userId: string,
+    ): Promise<void> {
+        await apiClient.delete(
+            `/conversations/${conversationId}/members/${userId}`,
+        );
+    },
+
+    async leaveConversation(
+        conversationId: string,
+    ): Promise<void> {
+        await apiClient.delete(
+            `/conversations/${conversationId}/members/me`,
+        );
+    },
+
+    async renameConversation(
+        conversationId: string,
+        name: string,
+    ): Promise<void> {
+        await apiClient.patch(
+            `/conversations/${conversationId}/name`,
+            { name: name.trim() },
+        );
     },
 
     async getMessages(

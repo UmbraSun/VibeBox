@@ -1,7 +1,9 @@
+
 import { useState } from "react";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useConversationMessages } from "@/features/messages/hooks/useConversationMessages";
 import { getCurrentUserId } from "@/features/messages/utils/tokenUtils";
+import { GroupConversationPanel } from "@/features/conversations/components/GroupConversationPanel";
 import { ImageLightbox } from "./ImageLightbox";
 import { MessageComposer } from "./MessageComposer";
 import { MessageList } from "./MessageList";
@@ -9,11 +11,15 @@ import { MessageList } from "./MessageList";
 interface ConversationChatProps {
     conversationId: string;
     conversationName: string;
+    conversationType: string;
+    onLeaveGroup: () => void;
 }
 
 export function ConversationChat({
     conversationId,
     conversationName,
+    conversationType,
+    onLeaveGroup,
 }: ConversationChatProps) {
     const accessToken = useAuthStore((state) => state.accessToken);
     const currentUserId = getCurrentUserId(accessToken);
@@ -25,6 +31,10 @@ export function ConversationChat({
         url: string;
         fileName: string;
     } | null>(null);
+
+    const [isGroupPanelOpen, setIsGroupPanelOpen] = useState(false);
+
+    const isGroup = conversationType.toLowerCase() === "group";
 
     const {
         messages,
@@ -67,20 +77,43 @@ export function ConversationChat({
         <section className="rooms-section channel-chat">
             <div className="rooms-heading">
                 <div>
-                    <p className="room-eyebrow">CONVERSATION</p>
+                    <p className="room-eyebrow">
+                        {isGroup ? "GROUP CONVERSATION" : "CONVERSATION"}
+                    </p>
                     <h2>{conversationName}</h2>
                 </div>
 
-                <span className="participant-count">
-                    {connectionStatus === "connected"
-                        ? "Connected"
-                        : connectionStatus === "connecting"
-                          ? "Connecting..."
-                          : connectionStatus === "error"
-                            ? "Connection error"
-                            : "Disconnected"}
-                </span>
+                <div className="conversation-chat-actions">
+                    <span className="participant-count">
+                        {connectionStatus === "connected"
+                            ? "Connected"
+                            : connectionStatus === "connecting"
+                              ? "Connecting..."
+                              : connectionStatus === "error"
+                                ? "Connection error"
+                                : "Disconnected"}
+                    </span>
+
+                    {isGroup && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setIsGroupPanelOpen((current) => !current)
+                            }
+                        >
+                            {isGroupPanelOpen ? "Hide details" : "Group details"}
+                        </button>
+                    )}
+                </div>
             </div>
+
+            {isGroup && isGroupPanelOpen && (
+                <GroupConversationPanel
+                    conversationId={conversationId}
+                    currentUserId={currentUserId}
+                    onLeave={onLeaveGroup}
+                />
+            )}
 
             {error && (
                 <p className="form-error" role="alert">

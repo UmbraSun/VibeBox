@@ -17,6 +17,7 @@ export function DirectMessagesSection() {
         error,
         loadConversations,
         createDirect,
+        createGroup,
     } = useConversations();
 
     const [hubError, setHubError] = useState<string | null>(null);
@@ -53,10 +54,12 @@ export function DirectMessagesSection() {
     const handleHubConnected = useCallback(() => { }, []);
 
     useMessageHub({
+        conversationIds: conversations.map((conversation) => conversation.id),
         onConnected: handleHubConnected,
         onStatusChange: handleHubStatusChange,
         onError: handleHubError,
         onConversationUpdated: handleConversationUpdated,
+        onConversationMessageChanged: handleConversationUpdated,
     });
 
     const {
@@ -72,6 +75,11 @@ export function DirectMessagesSection() {
         useState<string | null>(null);
     const [selectedConversationName, setSelectedConversationName] =
         useState("");
+    const [isGroupCreationOpen, setIsGroupCreationOpen] = useState(false);
+    const [groupName, setGroupName] = useState("");
+    const [selectedGroupUsers, setSelectedGroupUsers] = useState<
+        { id: string; email: string }[]
+    >([]);
 
     const previousConversationIdsRef = useRef<Set<string>>(new Set());
 
@@ -108,18 +116,77 @@ export function DirectMessagesSection() {
         }
     }, [conversations, selectedConversationId]);
 
+    useEffect(() => {
+        if (!selectedConversationId) return;
+
+        const selectedConversation = conversations.find(
+            (conversation) => conversation.id === selectedConversationId,
+        );
+
+        if (!selectedConversation) return;
+
+        const name =
+            selectedConversation.type.toLowerCase() === "group"
+                ? selectedConversation.name ?? "Group"
+                : selectedConversation.otherUserEmail ?? "Conversation";
+
+        setSelectedConversationName((current) =>
+            current === name ? current : name,
+        );
+    }, [conversations, selectedConversationId]);
+
     async function handleSearchChange(value: string) {
         setSearch(value);
         await searchUsers(value);
     }
 
     async function handleSelectUser(userId: string, email: string) {
+        if (isGroupCreationOpen) {
+            setSelectedGroupUsers((current) => {
+                if (current.some((user) => user.id === userId)) {
+                    return current.filter((user) => user.id !== userId);
+                }
+
+                return [...current, { id: userId, email }];
+            });
+
+            return;
+        }
+
         try {
             const conversationId = await createDirect(userId);
 
             setSelectedConversationId(conversationId);
             setSelectedConversationName(email);
             setSearch("");
+            clearSearch();
+        } catch {
+            // The conversations hook exposes the creation error.
+        }
+    }
+
+    async function handleCreateGroup() {
+        if (
+            !groupName.trim() ||
+            selectedGroupUsers.length < 2 ||
+            isCreating
+        ) {
+            return;
+        }
+
+        try {
+            const conversationId = await createGroup(
+                groupName,
+                selectedGroupUsers.map((user) => user.id),
+            );
+
+            setSelectedConversationId(conversationId);
+            setSelectedConversationName(groupName.trim());
+
+            setGroupName("");
+            setSelectedGroupUsers([]);
+            setSearch("");
+            setIsGroupCreationOpen(false);
             clearSearch();
         } catch {
             // The conversations hook exposes the creation error.
@@ -140,6 +207,64 @@ export function DirectMessagesSection() {
 
             <div className="direct-messages-layout">
                 <aside className="direct-messages-sidebar">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsGroupCreationOpen((current) => !current);
+                            setSelectedGroupUsers([]);
+                            setSearch("");
+                            clearSearch();
+                        }}
+                    >
+                        {isGroupCreationOpen ? "Cancel group creation" : "+ Create group"}
+                    </button>
+
+                    {isGroupCreationOpen && (
+                        <div className="group-creation">
+                            <input
+                                type="text"
+                                value={groupName}
+                                onChange={(event) => setGroupName(event.target.value)}
+                                placeholder="Group name"
+                                maxLength={200}
+                            />
+
+                            <p className="direct-messages-hint">
+                                Select at least two participants.
+                            </p>
+
+                            {selectedGroupUsers.length > 0 && (
+                                <div className="group-selected-users">
+                                    {selectedGroupUsers.map((user) => (
+                                        <button
+                                            key={user.id}
+                                            type="button"
+                                            onClick={() =>
+                                                setSelectedGroupUsers((current) =>
+                                                    current.filter((item) => item.id !== user.id),
+                                                )
+                                            }
+                                        >
+                                            {user.email} ×
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <button
+                                type="button"
+                                disabled={
+                                    isCreating ||
+                                    !groupName.trim() ||
+                                    selectedGroupUsers.length < 2
+                                }
+                                onClick={() => void handleCreateGroup()}
+                            >
+                                {isCreating ? "Creating..." : "Create group"}
+                            </button>
+                        </div>
+                    )}
+
                     <div className="direct-messages-search">
                         <input
                             type="text"
@@ -147,7 +272,11 @@ export function DirectMessagesSection() {
                             onChange={(event) =>
                                 void handleSearchChange(event.target.value)
                             }
-                            placeholder="Search users by email..."
+                            placeholder={
+                                isGroupCreationOpen
+                                    ? "Search users to add to group..."
+                                    : "Search users by email..."
+                            }
                         />
 
                         {isSearching && (
@@ -176,7 +305,10 @@ export function DirectMessagesSection() {
                                             )
                                         }
                                     >
-                                        {user.email}
+                                        {isGroupCreationOpen &&
+                                            selectedGroupUsers.some((item) => item.id === user.id)
+                                            ? `✓ ${user.email}`
+                                            : user.email}
                                     </button>
                                 ))}
                             </div>
@@ -193,8 +325,6 @@ export function DirectMessagesSection() {
                     </div>
 
                     <div className="direct-messages-list">
-                        <h3>Conversations</h3>
-
                         {isLoading && (
                             <p className="direct-messages-hint">
                                 Loading conversations...
@@ -209,59 +339,78 @@ export function DirectMessagesSection() {
                             <p className="direct-messages-error">{hubError}</p>
                         )}
 
+                        {(["Direct", "Group"] as const).map((type) => {
+                            const items = conversations.filter(
+                                (conversation) =>
+                                    conversation.type.toLowerCase() === type.toLowerCase(),
+                            );
+
+                            if (items.length === 0) {
+                                return null;
+                            }
+
+                            return (
+                                <div key={type}>
+                                    <h3>
+                                        {type === "Direct" ? "Direct Messages" : "Groups"}
+                                    </h3>
+
+                                    {items.map((conversation) => {
+                                        const name =
+                                            conversation.type.toLowerCase() === "group"
+                                                ? conversation.name ?? "Group"
+                                                : conversation.otherUserEmail ?? "Conversation";
+
+                                        return (
+                                            <button
+                                                key={conversation.id}
+                                                type="button"
+                                                className={
+                                                    selectedConversationId === conversation.id
+                                                        ? "direct-message-item active"
+                                                        : "direct-message-item"
+                                                }
+                                                onClick={() =>
+                                                    handleSelectConversation(
+                                                        conversation.id,
+                                                        name,
+                                                    )
+                                                }
+                                            >
+                                                <div className="direct-message-item-info">
+                                                    <span className="direct-message-item-name">
+                                                        {name}
+                                                    </span>
+
+                                                    <span className="direct-message-item-preview">
+                                                        {conversation.lastMessageContent?.trim() ||
+                                                            (conversation.lastMessageHasAttachments
+                                                                ? "Attachment"
+                                                                : "No messages yet")}
+                                                    </span>
+                                                </div>
+
+                                                {(conversation.lastMessageCreatedAtUtc ??
+                                                    conversation.lastMessageAtUtc) && (
+                                                        <small className="direct-message-item-date">
+                                                            {new Date(
+                                                                conversation.lastMessageCreatedAtUtc ??
+                                                                conversation.lastMessageAtUtc!,
+                                                            ).toLocaleDateString()}
+                                                        </small>
+                                                    )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
+
                         {!isLoading && conversations.length === 0 && (
                             <p className="direct-messages-hint">
                                 No conversations yet.
                             </p>
                         )}
-
-                        {conversations.map((conversation) => {
-                            const name =
-                                conversation.otherUserEmail ??
-                                conversation.name ??
-                                "Conversation";
-
-                            return (
-                                <button
-                                    key={conversation.id}
-                                    type="button"
-                                    className={
-                                        selectedConversationId === conversation.id
-                                            ? "direct-message-item active"
-                                            : "direct-message-item"
-                                    }
-                                    onClick={() =>
-                                        handleSelectConversation(
-                                            conversation.id,
-                                            name,
-                                        )
-                                    }
-                                >
-                                    <div className="direct-message-item-info">
-                                        <span className="direct-message-item-name">
-                                            {name}
-                                        </span>
-
-                                        <span className="direct-message-item-preview">
-                                            {conversation.lastMessageContent?.trim() ||
-                                                (conversation.lastMessageHasAttachments
-                                                    ? "Attachment"
-                                                    : "No messages yet")}
-                                        </span>
-                                    </div>
-
-                                    {(conversation.lastMessageCreatedAtUtc ??
-                                        conversation.lastMessageAtUtc) && (
-                                            <small className="direct-message-item-date">
-                                                {new Date(
-                                                    conversation.lastMessageCreatedAtUtc ??
-                                                    conversation.lastMessageAtUtc!,
-                                                ).toLocaleDateString()}
-                                            </small>
-                                        )}
-                                </button>
-                            );
-                        })}
                     </div>
                 </aside>
 
@@ -270,6 +419,16 @@ export function DirectMessagesSection() {
                         <ConversationChat
                             conversationId={selectedConversationId}
                             conversationName={selectedConversationName}
+                            conversationType={
+                                conversations.find(
+                                    (conversation) => conversation.id === selectedConversationId,
+                                )?.type ?? "Direct"
+                            }
+                            onLeaveGroup={() => {
+                                setSelectedConversationId(null);
+                                setSelectedConversationName("");
+                                void loadConversations();
+                            }}
                         />
                     ) : (
                         <div className="direct-messages-empty">
