@@ -6,6 +6,7 @@ using Application.Features.Conversations.Commands.AddConversationMembers;
 using Application.Features.Conversations.Commands.CreateDirectConversation;
 using Application.Features.Conversations.Commands.CreateGroupConversation;
 using Application.Features.Conversations.Commands.LeaveConversation;
+using Application.Features.Conversations.Commands.MarkConversationAsRead;
 using Application.Features.Conversations.Commands.RemoveConversationMember;
 using Application.Features.Conversations.Commands.RenameConversation;
 using Application.Features.Conversations.Commands.SendConversationMessage;
@@ -392,7 +393,32 @@ public sealed class ConversationsController : ControllerBase
         await NotifyConversationUpdatedAsync(conversationId, cancellationToken);
 
         return NoContent();
-    }    
+    }
+
+    /// <summary>
+    /// Marks a specific conversation as read for the current user. This updates the last read timestamp for the user in the conversation. Returns a 204 No Content response upon successful marking of the conversation as read. If the conversation does not exist or the current user is not a member of the conversation, appropriate error responses will be returned.
+    /// </summary>
+    /// <param name="conversationId">Conversation identificator</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns></returns>
+    [HttpPatch("{conversationId:guid}/read")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MarkAsRead(
+        Guid conversationId,
+        [FromBody] MarkConversationAsReadRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _sender.Send(
+            new MarkConversationAsReadCommand(
+                conversationId,
+                request.ReadAtUtc),
+            cancellationToken);
+
+        return NoContent();
+    }
 
     private async Task NotifyConversationUpdatedAsync(
         Guid conversationId,

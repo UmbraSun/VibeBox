@@ -11,6 +11,7 @@ export interface ConversationSummaryResponse {
     otherUserId: string | null;
     otherUserEmail: string | null;
     lastReadAtUtc: string | null;
+    unreadCount: number;
     lastMessageContent: string | null;
     lastMessageCreatedAtUtc: string | null;
     lastMessageSenderId: string | null;
@@ -82,6 +83,15 @@ export const conversationsApi = {
         );
 
         return response.data;
+    },
+
+    async markAsRead(
+        conversationId: string,
+        readAtUtc: string,
+    ): Promise<void> {
+        await apiClient.patch(`/conversations/${conversationId}/read`, {
+            readAtUtc,
+        });
     },
 
     async addMembers(

@@ -3,26 +3,54 @@ import type { MessageResponse } from "@/api/messagesApi";
 import { messageService } from "@/features/messages/services/messageService";
 import { useMessageHub } from "./useMessageHub";
 
+const PAGE_SIZE = 50;
+
 type ConnectionStatus =
     | "disconnected"
     | "connecting"
     | "connected"
     | "error";
 
+function mergeMessages(
+    current: MessageResponse[],
+    incoming: MessageResponse[],
+): MessageResponse[] {
+    const messagesById = new Map(
+        current.map((message) => [message.id, message]),
+    );
+
+    for (const message of incoming) {
+        messagesById.set(message.id, message);
+    }
+
+    return [...messagesById.values()].sort((a, b) => {
+        const dateDifference =
+            new Date(a.createdAtUtc).getTime() -
+            new Date(b.createdAtUtc).getTime();
+
+        return dateDifference || a.id.localeCompare(b.id);
+    });
+}
+
 export function useConversationMessages(conversationId: string) {
     const [messages, setMessages] = useState<MessageResponse[]>([]);
     const [connectionStatus, setConnectionStatus] =
         useState<ConnectionStatus>("disconnected");
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const loadMessages = useCallback(async () => {
         try {
-            const result =
-                await messageService.getConversationMessages(conversationId);
+            const result = await messageService.getConversationMessages(
+                conversationId,
+                PAGE_SIZE,
+            );
 
             setMessages(result);
+            setHasMoreMessages(result.length === PAGE_SIZE);
             setError(null);
         } catch (requestError: unknown) {
             setError(
@@ -34,6 +62,78 @@ export function useConversationMessages(conversationId: string) {
             setIsLoading(false);
         }
     }, [conversationId]);
+
+    const refreshLatestMessages = useCallback(async () => {
+        try {
+            const result = await messageService.getConversationMessages(
+                conversationId,
+                PAGE_SIZE,
+            );
+
+            setMessages((current) => mergeMessages(current, result));
+            setError(null);
+        } catch (requestError: unknown) {
+            setError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Unable to refresh messages.",
+            );
+        }
+    }, [conversationId]);
+
+    const loadOlderMessages = useCallback(async () => {
+        if (
+            isLoading ||
+            isLoadingOlder ||
+            !hasMoreMessages ||
+            messages.length === 0
+        ) {
+            return [];
+        }
+
+        setIsLoadingOlder(true);
+
+        try {
+            const result = await messageService.getConversationMessages(
+                conversationId,
+                PAGE_SIZE,
+                messages[0].id,
+            );
+
+            setMessages((current) => {
+                const existingIds = new Set(
+                    current.map((message) => message.id),
+                );
+
+                const olderMessages = result.filter(
+                    (message) => !existingIds.has(message.id),
+                );
+
+                return [...olderMessages, ...current];
+            });
+
+            setHasMoreMessages(result.length === PAGE_SIZE);
+            setError(null);
+
+            return result;
+        } catch (requestError: unknown) {
+            setError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Unable to load older messages.",
+            );
+
+            return [];
+        } finally {
+            setIsLoadingOlder(false);
+        }
+    }, [
+        conversationId,
+        hasMoreMessages,
+        isLoading,
+        isLoadingOlder,
+        messages,
+    ]);
 
     const sendMessage = useCallback(
         async (content: string) => {
@@ -50,20 +150,20 @@ export function useConversationMessages(conversationId: string) {
                     normalizedContent,
                 );
 
-                await loadMessages();
+                await refreshLatestMessages();
             } catch (requestError: unknown) {
-                const message =
+                setError(
                     requestError instanceof Error
                         ? requestError.message
-                        : "Unable to send message.";
+                        : "Unable to send message.",
+                );
 
-                setError(message);
                 throw requestError;
             } finally {
                 setIsSending(false);
             }
         },
-        [conversationId, isSending, loadMessages],
+        [conversationId, isSending, refreshLatestMessages],
     );
 
     const sendAttachments = useCallback(
@@ -80,20 +180,20 @@ export function useConversationMessages(conversationId: string) {
                     content,
                 );
 
-                await loadMessages();
+                await refreshLatestMessages();
             } catch (requestError: unknown) {
-                const message =
+                setError(
                     requestError instanceof Error
                         ? requestError.message
-                        : "Unable to upload attachments.";
+                        : "Unable to upload attachments.",
+                );
 
-                setError(message);
                 throw requestError;
             } finally {
                 setIsSending(false);
             }
         },
-        [conversationId, isSending, loadMessages],
+        [conversationId, isSending, refreshLatestMessages],
     );
 
     const deleteMessage = useCallback(
@@ -106,18 +206,16 @@ export function useConversationMessages(conversationId: string) {
                     messageId,
                 );
 
-                setMessages((currentMessages) =>
-                    currentMessages.filter(
-                        (message) => message.id !== messageId,
-                    ),
+                setMessages((current) =>
+                    current.filter((message) => message.id !== messageId),
                 );
             } catch (requestError: unknown) {
-                const message =
+                setError(
                     requestError instanceof Error
                         ? requestError.message
-                        : "Unable to delete message.";
+                        : "Unable to delete message.",
+                );
 
-                setError(message);
                 throw requestError;
             }
         },
@@ -125,20 +223,18 @@ export function useConversationMessages(conversationId: string) {
     );
 
     const handleMessageCreated = useCallback(() => {
-        void loadMessages();
-    }, [loadMessages]);
+        void refreshLatestMessages();
+    }, [refreshLatestMessages]);
 
     const handleMessageDeleted = useCallback((messageId: string) => {
-        setMessages((currentMessages) =>
-            currentMessages.filter(
-                (message) => message.id !== messageId,
-            ),
+        setMessages((current) =>
+            current.filter((message) => message.id !== messageId),
         );
     }, []);
 
     const handleConnected = useCallback(() => {
-        void loadMessages();
-    }, [loadMessages]);
+        void refreshLatestMessages();
+    }, [refreshLatestMessages]);
 
     const handleStatusChange = useCallback((status: ConnectionStatus) => {
         setConnectionStatus(status);
@@ -152,8 +248,12 @@ export function useConversationMessages(conversationId: string) {
     useEffect(() => {
         setMessages([]);
         setIsLoading(true);
+        setIsLoadingOlder(false);
+        setHasMoreMessages(true);
         setError(null);
-    }, [conversationId]);
+
+        void loadMessages();
+    }, [conversationId, loadMessages]);
 
     useMessageHub({
         conversationId,
@@ -168,11 +268,14 @@ export function useConversationMessages(conversationId: string) {
         messages,
         connectionStatus,
         isLoading,
+        isLoadingOlder,
+        hasMoreMessages,
         isSending,
         error,
         sendMessage,
         sendAttachments,
         deleteMessage,
-        reloadMessages: loadMessages,
+        loadOlderMessages,
+        reloadMessages: refreshLatestMessages,
     };
 }

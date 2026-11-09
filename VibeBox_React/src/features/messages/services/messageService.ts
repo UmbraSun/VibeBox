@@ -18,14 +18,14 @@ export const messageService = {
 
     async getConversationMessages(
         conversationId: string,
+        limit = 50,
+        beforeMessageId?: string,
     ): Promise<MessageResponse[]> {
-        try {
-            return await conversationsApi.getMessages(conversationId);
-        } catch (error: unknown) {
-            throw new Error(
-                getErrorMessage(error, "Unable to load messages."),
-            );
-        }
+        return conversationsApi.getMessages(
+            conversationId,
+            limit,
+            beforeMessageId,
+        );
     },
 
     async sendMessage(channelId: string, content: string): Promise<void> {

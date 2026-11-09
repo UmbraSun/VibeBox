@@ -12,4 +12,5 @@ public sealed record ConversationSummaryResponse(
     string? LastMessageContent,
     DateTime? LastMessageCreatedAtUtc,
     Guid? LastMessageSenderId,
-    bool LastMessageHasAttachments);
+    bool LastMessageHasAttachments,
+    int UnreadCount);

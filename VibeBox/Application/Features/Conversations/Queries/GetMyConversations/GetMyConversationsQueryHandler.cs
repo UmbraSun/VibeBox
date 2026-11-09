@@ -28,6 +28,10 @@ public sealed class GetMyConversationsQueryHandler
             currentUserId,
             cancellationToken);
 
+        var unreadCounts = await _conversationRepository.GetUnreadCountsByUserIdAsync(
+            currentUserId,
+            cancellationToken);
+
         return conversations.Select(conversation =>
         {
             var currentMember = conversation.Members
@@ -43,6 +47,12 @@ public sealed class GetMyConversationsQueryHandler
                 .ThenByDescending(message => message.Id)
                 .FirstOrDefault();
 
+            var unreadCount = unreadCounts.TryGetValue(
+                conversation.Id,
+                out var count)
+                    ? count
+                    : 0;
+
             return new ConversationSummaryResponse(
                 conversation.Id,
                 conversation.Type.ToString(),
@@ -55,7 +65,8 @@ public sealed class GetMyConversationsQueryHandler
                 lastMessage?.Content,
                 lastMessage?.CreatedAtUtc,
                 lastMessage?.SenderId,
-                lastMessage?.Attachments.Count > 0);
+                lastMessage?.Attachments.Count > 0,
+                unreadCount);
         }).ToList();
     }
 }

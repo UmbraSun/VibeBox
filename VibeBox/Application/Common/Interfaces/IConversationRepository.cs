@@ -102,4 +102,14 @@ public interface IConversationRepository
     Task<Guid> CreateGroupAsync(
         Conversation conversation,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the unread message counts for all conversations belonging to the specified user. This method is intended for scenarios where a user needs to know how many unread messages they have in each of their conversations, allowing for efficient notification and message management.
+    /// </summary>
+    /// <param name="userId">The unique identifier of the user.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
 }
