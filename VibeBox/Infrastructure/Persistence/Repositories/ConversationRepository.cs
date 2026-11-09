@@ -181,4 +181,28 @@ public sealed class ConversationRepository : IConversationRepository
 
         return conversation.Id;
     }
+
+    public async Task<IReadOnlyDictionary<Guid, int>> GetUnreadCountsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var unreadCounts = await _context.ConversationMembers
+            .AsNoTracking()
+            .Where(member => member.UserId == userId)
+            .Select(member => new
+            {
+                member.ConversationId,
+                UnreadCount = _context.Messages.Count(message =>
+                    message.ConversationId == member.ConversationId &&
+                    message.SenderId != userId &&
+                    message.CreatedAtUtc >
+                        (member.LastReadAtUtc ?? member.JoinedAtUtc))
+            })
+            .ToDictionaryAsync(
+                item => item.ConversationId,
+                item => item.UnreadCount,
+                cancellationToken);
+
+        return unreadCounts;
+    }
 }

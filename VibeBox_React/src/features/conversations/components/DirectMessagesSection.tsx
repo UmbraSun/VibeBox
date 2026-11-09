@@ -103,20 +103,6 @@ export function DirectMessagesSection() {
     });
 
     useEffect(() => {
-        if (
-            !selectedConversationId &&
-            conversations.length > 0
-        ) {
-            const first = conversations[0];
-
-            setSelectedConversationId(first.id);
-            setSelectedConversationName(
-                first.otherUserEmail ?? first.name ?? "Conversation",
-            );
-        }
-    }, [conversations, selectedConversationId]);
-
-    useEffect(() => {
         if (!selectedConversationId) return;
 
         const selectedConversation = conversations.find(
@@ -378,9 +364,22 @@ export function DirectMessagesSection() {
                                                 }
                                             >
                                                 <div className="direct-message-item-info">
-                                                    <span className="direct-message-item-name">
-                                                        {name}
-                                                    </span>
+                                                    <div className="direct-message-item-title">
+                                                        <span className="direct-message-item-name">
+                                                            {name}
+                                                        </span>
+
+                                                        {conversation.unreadCount > 0 && (
+                                                            <span
+                                                                className="direct-message-unread-count"
+                                                                aria-label={`${conversation.unreadCount} unread messages`}
+                                                            >
+                                                                {conversation.unreadCount > 99
+                                                                    ? "99+"
+                                                                    : conversation.unreadCount}
+                                                            </span>
+                                                        )}
+                                                    </div>
 
                                                     <span className="direct-message-item-preview">
                                                         {conversation.lastMessageContent?.trim() ||
@@ -424,11 +423,17 @@ export function DirectMessagesSection() {
                                     (conversation) => conversation.id === selectedConversationId,
                                 )?.type ?? "Direct"
                             }
+                            lastReadAtUtc={
+                                conversations.find(
+                                    (conversation) => conversation.id === selectedConversationId,
+                                )?.lastReadAtUtc ?? null
+                            }
                             onLeaveGroup={() => {
                                 setSelectedConversationId(null);
                                 setSelectedConversationName("");
                                 void loadConversations();
                             }}
+                            onConversationRead={handleConversationUpdated}
                         />
                     ) : (
                         <div className="direct-messages-empty">

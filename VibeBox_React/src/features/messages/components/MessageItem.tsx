@@ -22,7 +22,11 @@ export function MessageItem({
         message.senderId.toLowerCase() === currentUserId.toLowerCase();
 
     return (
-        <article className="channel-chat-message">
+        <article
+            className="channel-chat-message"
+            data-message-id={message.id}
+            data-message-created-at={message.createdAtUtc}
+        >
             <div className="channel-chat-message-header">
                 <div className="channel-chat-message-author">
                     <strong>{message.senderEmail}</strong>

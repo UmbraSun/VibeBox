@@ -63,7 +63,11 @@ export function useMessageHub({
         const isNotificationOnly =
             !isConversationList && !conversationId && !channelId;
 
-        if (!isNotificationOnly && targetIds.length === 0) {
+        if (
+            !isNotificationOnly &&
+            !isConversationList &&
+            targetIds.length === 0
+        ) {
             onStatusChange("disconnected");
             return;
         }
