@@ -1,6 +1,7 @@
 import {
     useCallback,
     useEffect,
+    useMemo,
     useRef,
     useState,
 } from "react";
@@ -53,8 +54,13 @@ export function DirectMessagesSection() {
     const handleHubStatusChange = useCallback(() => { }, []);
     const handleHubConnected = useCallback(() => { }, []);
 
+    const conversationIds = useMemo(
+        () => conversations.map((conversation) => conversation.id),
+        [conversations],
+    );
+
     useMessageHub({
-        conversationIds: conversations.map((conversation) => conversation.id),
+        conversationIds,
         onConnected: handleHubConnected,
         onStatusChange: handleHubStatusChange,
         onError: handleHubError,
@@ -100,7 +106,7 @@ export function DirectMessagesSection() {
         }
 
         previousConversationIdsRef.current = currentIds;
-    });
+    }, [conversations, selectedConversationId]);
 
     useEffect(() => {
         if (!selectedConversationId) return;
@@ -434,6 +440,11 @@ export function DirectMessagesSection() {
                                 void loadConversations();
                             }}
                             onConversationRead={handleConversationUpdated}
+                            unreadCount={
+                                conversations.find(
+                                    (conversation) => conversation.id === selectedConversationId,
+                                )?.unreadCount ?? 0
+                            }
                         />
                     ) : (
                         <div className="direct-messages-empty">

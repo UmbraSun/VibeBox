@@ -75,7 +75,9 @@ public sealed class MessageRepository : IMessageRepository
         return await _context.MessageAttachments
             .AsNoTracking()
             .Include(attachment => attachment.Message)
-            .ThenInclude(message => message.Channel)
+                .ThenInclude(message => message.Channel)
+            .Include(attachment => attachment.Message)
+                .ThenInclude(message => message.Conversation)
             .FirstOrDefaultAsync(
                 attachment => attachment.Id == attachmentId,
                 cancellationToken);

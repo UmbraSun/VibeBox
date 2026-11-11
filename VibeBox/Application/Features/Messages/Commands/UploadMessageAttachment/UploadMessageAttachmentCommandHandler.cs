@@ -115,17 +115,34 @@ public sealed class UploadMessageAttachmentCommandHandler
 
         foreach (var file in request.Files)
         {
-            if (file.SizeBytes <= 0)
+            if (file.Content is null ||
+                !file.Content.CanRead ||
+                !file.Content.CanSeek)
+            {
+                throw new ValidationException(
+                    $"File stream is invalid: {file.FileName}.");
+            }
+
+            file.Content.Position = 0;
+
+            var actualSize = file.Content.Length;
+
+            if (actualSize <= 0)
                 throw new ValidationException(
                     "Empty files cannot be uploaded.");
 
-            if (file.SizeBytes > MaxTotalSizeBytes - totalSize)
+            if (file.SizeBytes != actualSize)
+                throw new ValidationException(
+                    $"File size does not match its content: {file.FileName}.");
+
+            if (actualSize > MaxTotalSizeBytes - totalSize)
                 throw new ValidationException(
                     "Total attachment size must not exceed 150 MB.");
 
-            totalSize += file.SizeBytes;
+            totalSize += actualSize;
 
-            var extension = Path.GetExtension(file.FileName);
+            var safeFileName = NormalizeFileName(file.FileName);
+            var extension = Path.GetExtension(safeFileName);
 
             if (!AllowedFiles.TryGetValue(
                     extension,
@@ -136,7 +153,7 @@ public sealed class UploadMessageAttachmentCommandHandler
                     StringComparison.OrdinalIgnoreCase))
             {
                 throw new ValidationException(
-                    $"Unsupported file type: {file.FileName}.");
+                    $"Unsupported file type: {safeFileName}.");
             }
 
             var isVideo = expectedContentType.StartsWith(
@@ -147,7 +164,7 @@ public sealed class UploadMessageAttachmentCommandHandler
                 ? MaxVideoSizeBytes
                 : MaxImageSizeBytes;
 
-            if (file.SizeBytes > maxSize)
+            if (actualSize > maxSize)
             {
                 throw new ValidationException(isVideo
                     ? "Video size must not exceed 100 MB."
@@ -160,8 +177,10 @@ public sealed class UploadMessageAttachmentCommandHandler
                     cancellationToken))
             {
                 throw new ValidationException(
-                    $"File content does not match its declared format: {file.FileName}.");
+                    $"File content does not match its declared format: {safeFileName}.");
             }
+
+            file.Content.Position = 0;
         }
 
         var messageId = Guid.NewGuid();
@@ -195,9 +214,9 @@ public sealed class UploadMessageAttachmentCommandHandler
             var attachment = new MessageAttachment(
                 attachmentId,
                 messageId,
-                Path.GetFileName(file.FileName),
-                file.ContentType,
-                file.SizeBytes,
+                NormalizeFileName(file.FileName),
+                AllowedFiles[Path.GetExtension(NormalizeFileName(file.FileName))],
+                file.Content.Length,
                 storageKey,
                 createdAtUtc);
 
@@ -215,7 +234,7 @@ public sealed class UploadMessageAttachmentCommandHandler
                 await _objectStorage.UploadAsync(
                     storageKeys[index],
                     file.Content,
-                    file.ContentType,
+                    AllowedFiles[Path.GetExtension(NormalizeFileName(file.FileName))],
                     cancellationToken);
             }
 
@@ -318,5 +337,22 @@ public sealed class UploadMessageAttachmentCommandHandler
         {
             stream.Position = originalPosition;
         }
+    }
+
+    private static string NormalizeFileName(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            throw new ValidationException("File name is required.");
+
+        var normalized = fileName.Replace('\\', '/');
+        var safeFileName = Path.GetFileName(normalized).Trim();
+
+        if (string.IsNullOrWhiteSpace(safeFileName) ||
+            safeFileName is "." or "..")
+        {
+            throw new ValidationException("Invalid file name.");
+        }
+
+        return safeFileName;
     }
 }

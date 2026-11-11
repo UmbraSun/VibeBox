@@ -1,3 +1,4 @@
+
 import { useState, type ChangeEvent } from "react";
 import {
     formatFileSize,
@@ -17,47 +18,45 @@ export function MessageComposer({
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [fileError, setFileError] = useState<string | null>(null);
 
-    function handleFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
+    function handleFilesChange(event: ChangeEvent<HTMLInputElement>) {
         const files = Array.from(event.currentTarget.files ?? []);
         event.currentTarget.value = "";
 
         if (files.length === 0) return;
 
-        setSelectedFiles((currentFiles) => {
-            const mergedFiles = [...currentFiles];
+        const mergedFiles = [...selectedFiles];
 
-            for (const file of files) {
-                const alreadySelected = mergedFiles.some(
-                    (existingFile) =>
-                        existingFile.name === file.name &&
-                        existingFile.size === file.size &&
-                        existingFile.lastModified === file.lastModified,
-                );
+        for (const file of files) {
+            const alreadySelected = mergedFiles.some(
+                (existingFile) =>
+                    existingFile.name === file.name &&
+                    existingFile.size === file.size &&
+                    existingFile.lastModified === file.lastModified,
+            );
 
-                if (!alreadySelected) mergedFiles.push(file);
+            if (!alreadySelected) {
+                mergedFiles.push(file);
             }
+        }
 
-            const validationError = validateFiles(mergedFiles);
+        const validationError = validateFiles(mergedFiles);
 
-            if (validationError) {
-                setFileError(validationError);
-                return currentFiles;
-            }
+        if (validationError) {
+            setFileError(validationError);
+            return;
+        }
 
-            setFileError(null);
-            return mergedFiles;
-        });
+        setSelectedFiles(mergedFiles);
+        setFileError(null);
     }
 
     function removeSelectedFile(indexToRemove: number) {
-        setSelectedFiles((currentFiles) => {
-            const updatedFiles = currentFiles.filter(
-                (_, index) => index !== indexToRemove,
-            );
+        const updatedFiles = selectedFiles.filter(
+            (_, index) => index !== indexToRemove,
+        );
 
-            setFileError(validateFiles(updatedFiles));
-            return updatedFiles;
-        });
+        setSelectedFiles(updatedFiles);
+        setFileError(validateFiles(updatedFiles));
     }
 
     async function handleSubmit(event: ChangeEvent<HTMLFormElement>) {
@@ -65,10 +64,20 @@ export function MessageComposer({
 
         const message = content.trim();
 
-        if (isSending || (!message && selectedFiles.length === 0)) return;
+        if (isSending || (!message && selectedFiles.length === 0)) {
+            return;
+        }
+
+        const validationError = validateFiles(selectedFiles);
+
+        if (validationError) {
+            setFileError(validationError);
+            return;
+        }
 
         try {
             await onSend(message, selectedFiles);
+
             setContent("");
             setSelectedFiles([]);
             setFileError(null);

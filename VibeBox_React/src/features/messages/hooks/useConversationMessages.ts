@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import type { MessageResponse } from "@/api/messagesApi";
 import { messageService } from "@/features/messages/services/messageService";
 import { useMessageHub } from "./useMessageHub";
 
 const PAGE_SIZE = 50;
+const HUB_REFRESH_DELAY = 100;
+const RECENT_REFRESH_WINDOW = 500;
 
 type ConnectionStatus =
     | "disconnected"
@@ -32,6 +40,13 @@ function mergeMessages(
     });
 }
 
+function getErrorMessage(
+    error: unknown,
+    fallback: string,
+): string {
+    return error instanceof Error ? error.message : fallback;
+}
+
 export function useConversationMessages(conversationId: string) {
     const [messages, setMessages] = useState<MessageResponse[]>([]);
     const [connectionStatus, setConnectionStatus] =
@@ -42,96 +57,202 @@ export function useConversationMessages(conversationId: string) {
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const activeConversationIdRef = useRef(conversationId);
+    activeConversationIdRef.current = conversationId;
+
+    const requestVersionRef = useRef(0);
+
+    const olderRequestRef = useRef<{
+        conversationId: string;
+        requestVersion: number;
+    } | null>(null);
+
+    const refreshPromiseRef = useRef<{
+        conversationId: string;
+        requestVersion: number;
+        promise: Promise<void>;
+    } | null>(null);
+
+    const hubRefreshTimerRef =
+        useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const lastRefreshAtRef = useRef(0);
+
     const loadMessages = useCallback(async () => {
+        const requestVersion = requestVersionRef.current;
+
         try {
             const result = await messageService.getConversationMessages(
                 conversationId,
                 PAGE_SIZE,
             );
+
+            if (
+                activeConversationIdRef.current !== conversationId ||
+                requestVersionRef.current !== requestVersion
+            ) {
+                return;
+            }
 
             setMessages(result);
             setHasMoreMessages(result.length === PAGE_SIZE);
             setError(null);
         } catch (requestError: unknown) {
-            setError(
-                requestError instanceof Error
-                    ? requestError.message
-                    : "Unable to load messages.",
-            );
+            if (
+                activeConversationIdRef.current === conversationId &&
+                requestVersionRef.current === requestVersion
+            ) {
+                setError(
+                    getErrorMessage(
+                        requestError,
+                        "Unable to load messages.",
+                    ),
+                );
+            }
         } finally {
-            setIsLoading(false);
+            if (
+                activeConversationIdRef.current === conversationId &&
+                requestVersionRef.current === requestVersion
+            ) {
+                setIsLoading(false);
+            }
         }
     }, [conversationId]);
 
-    const refreshLatestMessages = useCallback(async () => {
-        try {
-            const result = await messageService.getConversationMessages(
-                conversationId,
-                PAGE_SIZE,
-            );
+    const refreshLatestMessages = useCallback((): Promise<void> => {
+        const requestVersion = requestVersionRef.current;
 
-            setMessages((current) => mergeMessages(current, result));
-            setError(null);
-        } catch (requestError: unknown) {
-            setError(
-                requestError instanceof Error
-                    ? requestError.message
-                    : "Unable to refresh messages.",
-            );
+        if (activeConversationIdRef.current !== conversationId) {
+            return Promise.resolve();
         }
+
+        const existingRequest = refreshPromiseRef.current;
+
+        if (
+            existingRequest?.conversationId === conversationId &&
+            existingRequest.requestVersion === requestVersion
+        ) {
+            return existingRequest.promise;
+        }
+
+        lastRefreshAtRef.current = Date.now();
+
+        const refresh = async (): Promise<void> => {
+            try {
+                const result = await messageService.getConversationMessages(
+                    conversationId,
+                    PAGE_SIZE,
+                );
+
+                if (
+                    activeConversationIdRef.current !== conversationId ||
+                    requestVersionRef.current !== requestVersion
+                ) {
+                    return;
+                }
+
+                setMessages((current) => mergeMessages(current, result));
+                setError(null);
+            } catch (requestError: unknown) {
+                if (
+                    activeConversationIdRef.current === conversationId &&
+                    requestVersionRef.current === requestVersion
+                ) {
+                    setError(
+                        getErrorMessage(
+                            requestError,
+                            "Unable to refresh messages.",
+                        ),
+                    );
+                }
+            }
+        };
+
+        const promise = refresh().finally(() => {
+            if (refreshPromiseRef.current?.promise === promise) {
+                refreshPromiseRef.current = null;
+            }
+        });
+
+        refreshPromiseRef.current = {
+            conversationId,
+            requestVersion,
+            promise,
+        };
+
+        return promise;
     }, [conversationId]);
 
     const loadOlderMessages = useCallback(async () => {
         if (
             isLoading ||
-            isLoadingOlder ||
+            olderRequestRef.current ||
             !hasMoreMessages ||
             messages.length === 0
         ) {
             return [];
         }
 
+        const requestVersion = requestVersionRef.current;
+        const oldestMessageId = messages[0].id;
+
+        const request = {
+            conversationId,
+            requestVersion,
+        };
+
+        olderRequestRef.current = request;
         setIsLoadingOlder(true);
 
         try {
             const result = await messageService.getConversationMessages(
                 conversationId,
                 PAGE_SIZE,
-                messages[0].id,
+                oldestMessageId,
             );
 
-            setMessages((current) => {
-                const existingIds = new Set(
-                    current.map((message) => message.id),
-                );
+            if (
+                activeConversationIdRef.current !== conversationId ||
+                requestVersionRef.current !== requestVersion
+            ) {
+                return [];
+            }
 
-                const olderMessages = result.filter(
-                    (message) => !existingIds.has(message.id),
-                );
-
-                return [...olderMessages, ...current];
-            });
-
+            setMessages((current) => mergeMessages(current, result));
             setHasMoreMessages(result.length === PAGE_SIZE);
             setError(null);
 
             return result;
         } catch (requestError: unknown) {
-            setError(
-                requestError instanceof Error
-                    ? requestError.message
-                    : "Unable to load older messages.",
-            );
+            if (
+                activeConversationIdRef.current === conversationId &&
+                requestVersionRef.current === requestVersion
+            ) {
+                setError(
+                    getErrorMessage(
+                        requestError,
+                        "Unable to load older messages.",
+                    ),
+                );
+            }
 
             return [];
         } finally {
-            setIsLoadingOlder(false);
+            if (olderRequestRef.current === request) {
+                olderRequestRef.current = null;
+
+                if (
+                    activeConversationIdRef.current === conversationId &&
+                    requestVersionRef.current === requestVersion
+                ) {
+                    setIsLoadingOlder(false);
+                }
+            }
         }
     }, [
         conversationId,
         hasMoreMessages,
         isLoading,
-        isLoadingOlder,
         messages,
     ]);
 
@@ -152,15 +273,20 @@ export function useConversationMessages(conversationId: string) {
 
                 await refreshLatestMessages();
             } catch (requestError: unknown) {
-                setError(
-                    requestError instanceof Error
-                        ? requestError.message
-                        : "Unable to send message.",
-                );
+                if (activeConversationIdRef.current === conversationId) {
+                    setError(
+                        getErrorMessage(
+                            requestError,
+                            "Unable to send message.",
+                        ),
+                    );
+                }
 
                 throw requestError;
             } finally {
-                setIsSending(false);
+                if (activeConversationIdRef.current === conversationId) {
+                    setIsSending(false);
+                }
             }
         },
         [conversationId, isSending, refreshLatestMessages],
@@ -182,15 +308,20 @@ export function useConversationMessages(conversationId: string) {
 
                 await refreshLatestMessages();
             } catch (requestError: unknown) {
-                setError(
-                    requestError instanceof Error
-                        ? requestError.message
-                        : "Unable to upload attachments.",
-                );
+                if (activeConversationIdRef.current === conversationId) {
+                    setError(
+                        getErrorMessage(
+                            requestError,
+                            "Unable to upload attachments.",
+                        ),
+                    );
+                }
 
                 throw requestError;
             } finally {
-                setIsSending(false);
+                if (activeConversationIdRef.current === conversationId) {
+                    setIsSending(false);
+                }
             }
         },
         [conversationId, isSending, refreshLatestMessages],
@@ -206,15 +337,22 @@ export function useConversationMessages(conversationId: string) {
                     messageId,
                 );
 
+                if (activeConversationIdRef.current !== conversationId) {
+                    return;
+                }
+
                 setMessages((current) =>
                     current.filter((message) => message.id !== messageId),
                 );
             } catch (requestError: unknown) {
-                setError(
-                    requestError instanceof Error
-                        ? requestError.message
-                        : "Unable to delete message.",
-                );
+                if (activeConversationIdRef.current === conversationId) {
+                    setError(
+                        getErrorMessage(
+                            requestError,
+                            "Unable to delete message.",
+                        ),
+                    );
+                }
 
                 throw requestError;
             }
@@ -223,7 +361,21 @@ export function useConversationMessages(conversationId: string) {
     );
 
     const handleMessageCreated = useCallback(() => {
-        void refreshLatestMessages();
+        if (
+            Date.now() - lastRefreshAtRef.current <
+            RECENT_REFRESH_WINDOW
+        ) {
+            return;
+        }
+
+        if (hubRefreshTimerRef.current) {
+            clearTimeout(hubRefreshTimerRef.current);
+        }
+
+        hubRefreshTimerRef.current = setTimeout(() => {
+            hubRefreshTimerRef.current = null;
+            void refreshLatestMessages();
+        }, HUB_REFRESH_DELAY);
     }, [refreshLatestMessages]);
 
     const handleMessageDeleted = useCallback((messageId: string) => {
@@ -246,13 +398,34 @@ export function useConversationMessages(conversationId: string) {
     }, []);
 
     useEffect(() => {
+        requestVersionRef.current += 1;
+
+        if (hubRefreshTimerRef.current) {
+            clearTimeout(hubRefreshTimerRef.current);
+            hubRefreshTimerRef.current = null;
+        }
+
+        olderRequestRef.current = null;
+        refreshPromiseRef.current = null;
+        lastRefreshAtRef.current = 0;
+
         setMessages([]);
         setIsLoading(true);
         setIsLoadingOlder(false);
         setHasMoreMessages(true);
+        setIsSending(false);
         setError(null);
 
         void loadMessages();
+
+        return () => {
+            requestVersionRef.current += 1;
+
+            if (hubRefreshTimerRef.current) {
+                clearTimeout(hubRefreshTimerRef.current);
+                hubRefreshTimerRef.current = null;
+            }
+        };
     }, [conversationId, loadMessages]);
 
     useMessageHub({
