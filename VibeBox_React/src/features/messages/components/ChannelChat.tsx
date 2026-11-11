@@ -75,10 +75,10 @@ export function ChannelChat({
                     {connectionStatus === "connected"
                         ? "Connected"
                         : connectionStatus === "connecting"
-                          ? "Connecting..."
-                          : connectionStatus === "error"
-                            ? "Connection error"
-                            : "Disconnected"}
+                            ? "Connecting..."
+                            : connectionStatus === "error"
+                                ? "Connection error"
+                                : "Disconnected"}
                 </span>
             </div>
 
@@ -92,6 +92,8 @@ export function ChannelChat({
                 <MessageList
                     messages={messages}
                     isLoading={isLoading}
+                    isLoadingOlder={false}
+                    unreadMessageId={null}
                     currentUserId={currentUserId}
                     deletingMessageId={deletingMessageId}
                     onDelete={handleDeleteMessage}

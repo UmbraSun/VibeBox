@@ -51,7 +51,7 @@ export const messagesApi = {
 
         return response.data;
     },
-    
+
     async deleteMessage(
         channelId: string,
         messageId: string,
@@ -84,10 +84,16 @@ export const messagesApi = {
         );
     },
 
-    async getAttachment(attachmentId: string): Promise<Blob> {
+    async getAttachment(
+        attachmentId: string,
+        signal?: AbortSignal,
+    ): Promise<Blob> {
         const response = await apiClient.get<Blob>(
             `/attachments/${attachmentId}`,
-            { responseType: "blob" },
+            {
+                responseType: "blob",
+                signal,
+            },
         );
 
         return response.data;

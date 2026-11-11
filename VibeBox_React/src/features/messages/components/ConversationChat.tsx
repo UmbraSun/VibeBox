@@ -20,6 +20,7 @@ interface ConversationChatProps {
     conversationName: string;
     conversationType: string;
     lastReadAtUtc: string | null;
+    unreadCount: number;
     onLeaveGroup: () => void;
     onConversationRead?: (conversationId: string) => void;
 }
@@ -29,6 +30,7 @@ export function ConversationChat({
     conversationName,
     conversationType,
     lastReadAtUtc,
+    unreadCount,
     onLeaveGroup,
     onConversationRead,
 }: ConversationChatProps) {
@@ -73,20 +75,24 @@ export function ConversationChat({
         loadOlderMessages,
     } = useConversationMessages(conversationId);
 
+    const unreadMessages = messages.filter((message) => {
+        const isIncoming =
+            message.senderId.toLowerCase() !== currentUserId?.toLowerCase();
+
+        if (!isIncoming) return false;
+
+        if (!lastReadAtUtc) return true;
+
+        return (
+            new Date(message.createdAtUtc).getTime() >
+            new Date(lastReadAtUtc).getTime()
+        );
+    });
+
     const unreadMessageId =
-        messages.find((message) => {
-            const isIncoming =
-                message.senderId.toLowerCase() !== currentUserId?.toLowerCase();
-
-            if (!isIncoming) return false;
-
-            if (!lastReadAtUtc) return true;
-
-            return (
-                new Date(message.createdAtUtc).getTime() >
-                new Date(lastReadAtUtc).getTime()
-            );
-        })?.id ?? null;
+        unreadCount > 0 && unreadMessages.length >= unreadCount
+            ? unreadMessages[unreadMessages.length - unreadCount]?.id ?? null
+            : null;
 
     const handleMessagesScroll = useCallback(() => {
         const container = messagesContainerRef.current;
@@ -176,49 +182,65 @@ export function ConversationChat({
     useEffect(() => {
         const container = messagesContainerRef.current;
 
-        if (!container || isLoading || !unreadMessageId) return;
+        if (!container || !unreadMessageId) {
+            return;
+        }
 
         const observer = new IntersectionObserver(
             (entries) => {
-                const unreadEntryVisible = entries.some(
-                    (entry) =>
-                        entry.isIntersecting &&
-                        (entry.target as HTMLElement).dataset.messageId ===
-                        unreadMessageId,
-                );
+                const unreadMessageVisible = entries.some((entry) => {
+                    const element = entry.target as HTMLElement;
 
-                if (unreadEntryVisible) {
+                    return (
+                        element.dataset.messageId === unreadMessageId &&
+                        entry.isIntersecting
+                    );
+                });
+
+                if (unreadMessageVisible) {
                     hasReachedUnreadStartRef.current = true;
                 }
 
-                if (!hasReachedUnreadStartRef.current) return;
+                if (!hasReachedUnreadStartRef.current) {
+                    return;
+                }
 
-                const visibleMessages = entries
-                    .filter((entry) => entry.isIntersecting)
-                    .map((entry) => {
-                        const element = entry.target as HTMLElement;
+                const containerRect = container.getBoundingClientRect();
+                const visibleMessageDates: string[] = [];
 
-                        return {
-                            createdAtUtc: element.dataset.messageCreatedAt,
-                        };
-                    })
-                    .filter(
-                        (message): message is { createdAtUtc: string } =>
-                            !!message.createdAtUtc,
-                    );
+                container
+                    .querySelectorAll<HTMLElement>(
+                        ".channel-chat-message[data-message-id]",
+                    )
+                    .forEach((element: HTMLElement) => {
+                        const rect = element.getBoundingClientRect();
 
-                if (visibleMessages.length === 0) return;
+                        const isVisible =
+                            rect.bottom > containerRect.top &&
+                            rect.top < containerRect.bottom;
 
-                const latestVisible = visibleMessages.reduce((latest, current) =>
-                    new Date(current.createdAtUtc).getTime() >
-                        new Date(latest.createdAtUtc).getTime()
-                        ? current
-                        : latest,
+                        const createdAtUtc = element.dataset.messageCreatedAt;
+
+                        if (isVisible && createdAtUtc) {
+                            visibleMessageDates.push(createdAtUtc);
+                        }
+                    });
+
+                if (visibleMessageDates.length === 0) {
+                    return;
+                }
+
+                const readAtUtc = visibleMessageDates.reduce(
+                    (latest, current) =>
+                        new Date(current).getTime() >
+                            new Date(latest).getTime()
+                            ? current
+                            : latest,
                 );
 
                 if (
                     lastReadAtUtc &&
-                    new Date(latestVisible.createdAtUtc).getTime() <=
+                    new Date(readAtUtc).getTime() <=
                     new Date(lastReadAtUtc).getTime()
                 ) {
                     return;
@@ -226,7 +248,7 @@ export function ConversationChat({
 
                 if (
                     lastSubmittedReadAtRef.current &&
-                    new Date(latestVisible.createdAtUtc).getTime() <=
+                    new Date(readAtUtc).getTime() <=
                     new Date(lastSubmittedReadAtRef.current).getTime()
                 ) {
                     return;
@@ -237,8 +259,6 @@ export function ConversationChat({
                 }
 
                 readTimerRef.current = setTimeout(async () => {
-                    const readAtUtc = latestVisible.createdAtUtc;
-
                     try {
                         await conversationsApi.markAsRead(
                             conversationId,
@@ -247,26 +267,27 @@ export function ConversationChat({
 
                         lastSubmittedReadAtRef.current = readAtUtc;
                         onConversationRead?.(conversationId);
-                    } catch (requestError) {
+                    } catch (error) {
                         console.error(
-                            "Failed to update conversation read position.",
-                            requestError,
+                            "Failed to mark conversation as read:",
+                            error,
                         );
-                    } finally {
-                        readTimerRef.current = null;
                     }
                 }, 300);
             },
             {
                 root: container,
-                threshold: 0.6,
+                threshold: 0.1,
             },
         );
 
-        const messageElements =
-            container.querySelectorAll<HTMLElement>("[data-message-id]");
+        const messageElements = container.querySelectorAll<HTMLElement>(
+            ".channel-chat-message[data-message-id]",
+        );
 
-        messageElements.forEach((element) => observer.observe(element));
+        messageElements.forEach((element: HTMLElement) => {
+            observer.observe(element);
+        });
 
         return () => {
             observer.disconnect();
@@ -278,7 +299,6 @@ export function ConversationChat({
         };
     }, [
         conversationId,
-        isLoading,
         messages,
         unreadMessageId,
         lastReadAtUtc,

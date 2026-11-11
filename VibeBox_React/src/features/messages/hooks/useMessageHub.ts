@@ -45,7 +45,6 @@ export function useMessageHub({
     onConversationMessageChanged,
     onConversationUpdated,
 }: UseMessageHubOptions) {
-    // A stable dependency prevents reconnecting on every render.
     const conversationIdsKey = conversationIds?.join(",") ?? null;
 
     useEffect(() => {
@@ -53,19 +52,19 @@ export function useMessageHub({
         const isConversation = Boolean(conversationId);
 
         const targetIds = isConversationList
-            ? conversationIdsKey
-                .split(",")
-                .filter(Boolean)
+            ? conversationIdsKey.split(",").filter(Boolean)
             : [conversationId ?? channelId].filter(
-                (id): id is string => Boolean(id),
-            );
+                  (id): id is string => Boolean(id),
+              );
 
         const isNotificationOnly =
-            !isConversationList && !conversationId && !channelId;
+            !isConversationList &&
+            !conversationId &&
+            !channelId &&
+            Boolean(onConversationUpdated);
 
         if (
             !isNotificationOnly &&
-            !isConversationList &&
             targetIds.length === 0
         ) {
             onStatusChange("disconnected");
@@ -161,9 +160,17 @@ export function useMessageHub({
 
             connection = target;
 
-            target.on("MessageCreated", handleMessageCreated);
-            target.on("MessageDeleted", handleMessageDeleted);
-            target.on("ConversationUpdated", handleConversationUpdated);
+            if (onMessageCreated || onConversationMessageChanged) {
+                target.on("MessageCreated", handleMessageCreated);
+            }
+
+            if (onMessageDeleted || onConversationMessageChanged) {
+                target.on("MessageDeleted", handleMessageDeleted);
+            }
+
+            if (onConversationUpdated) {
+                target.on("ConversationUpdated", handleConversationUpdated);
+            }
 
             async function joinTargets() {
                 if (
@@ -255,28 +262,29 @@ export function useMessageHub({
 
             const target = connection;
 
-            if (target) {
-                void (async () => {
-                    try {
-                        if (
-                            target.state === HubConnectionState.Connected
-                        ) {
-                            for (const id of targetIds) {
-                                await target.invoke(
-                                    isConversationList || isConversation
-                                        ? "LeaveConversation"
-                                        : "LeaveChannel",
-                                    id,
-                                );
-                            }
+            if (!target) return;
+
+            void (async () => {
+                try {
+                    if (
+                        !isNotificationOnly &&
+                        target.state === HubConnectionState.Connected
+                    ) {
+                        for (const id of targetIds) {
+                            await target.invoke(
+                                isConversationList || isConversation
+                                    ? "LeaveConversation"
+                                    : "LeaveChannel",
+                                id,
+                            );
                         }
-                    } catch {
-                        // The connection may already be closed or reconnecting.
-                    } finally {
-                        await target.stop();
                     }
-                })();
-            }
+                } catch {
+                    // The connection may already be closed or reconnecting.
+                } finally {
+                    await target.stop();
+                }
+            })();
         };
     }, [
         channelId,

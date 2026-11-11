@@ -1,5 +1,4 @@
-
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     conversationsApi,
     type ConversationDetailsResponse,
@@ -15,23 +14,46 @@ export function useConversations() {
     const [isCreating, setIsCreating] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const loadPromiseRef = useRef<Promise<void> | null>(null);
+    const reloadRequestedRef = useRef(false);
 
-    const loadConversations = useCallback(async () => {
-        try {
-            const result = await conversationsApi.getMyConversations();
-
-            setConversations(result);
-            setError(null);
-        } catch (requestError: unknown) {
-            setError(
-                getErrorMessage(
-                    requestError,
-                    "Unable to load conversations.",
-                ),
-            );
-        } finally {
-            setIsLoading(false);
+    const loadConversations = useCallback((): Promise<void> => {
+        if (loadPromiseRef.current) {
+            reloadRequestedRef.current = true;
+            return loadPromiseRef.current;
         }
+
+        const load = async (): Promise<void> => {
+            do {
+                reloadRequestedRef.current = false;
+
+                try {
+                    const result = await conversationsApi.getMyConversations();
+
+                    setConversations(result);
+                    setError(null);
+                } catch (requestError: unknown) {
+                    setError(
+                        getErrorMessage(
+                            requestError,
+                            "Unable to load conversations.",
+                        ),
+                    );
+                } finally {
+                    setIsLoading(false);
+                }
+            } while (reloadRequestedRef.current);
+        };
+
+        const promise = load().finally(() => {
+            if (loadPromiseRef.current === promise) {
+                loadPromiseRef.current = null;
+            }
+        });
+
+        loadPromiseRef.current = promise;
+
+        return promise;
     }, []);
 
     const createDirect = useCallback(
