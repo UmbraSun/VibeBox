@@ -1,3 +1,4 @@
+
 import type { MessageResponse } from "@/api/messagesApi";
 import { MessageItem } from "./MessageItem";
 
@@ -9,6 +10,8 @@ interface MessageListProps {
     currentUserId: string | null;
     deletingMessageId: string | null;
     onDelete: (messageId: string) => void;
+    onReply: (message: MessageResponse) => void;
+    onJumpToMessage: (messageId: string) => void;
     onImageClick: (url: string, fileName: string) => void;
 }
 
@@ -20,6 +23,8 @@ export function MessageList({
     currentUserId,
     deletingMessageId,
     onDelete,
+    onReply,
+    onJumpToMessage,
     onImageClick,
 }: MessageListProps) {
     if (isLoading) {
@@ -51,6 +56,8 @@ export function MessageList({
                         currentUserId={currentUserId}
                         deletingMessageId={deletingMessageId}
                         onDelete={onDelete}
+                        onReply={onReply}
+                        onJumpToMessage={onJumpToMessage}
                         onImageClick={onImageClick}
                     />
                 </div>

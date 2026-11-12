@@ -1,3 +1,5 @@
 ﻿namespace Api.Contracts.Conversations;
 
-public sealed record SendConversationMessageRequest(string Content);
+public sealed record SendConversationMessageRequest(
+    string Content,
+    Guid? ReplyToMessageId = null);

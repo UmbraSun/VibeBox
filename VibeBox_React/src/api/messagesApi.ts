@@ -27,6 +27,31 @@ interface SendMessageResponse {
     id: string;
 }
 
+export interface MessageReplyResponse {
+    id: string;
+    senderId: string;
+    senderEmail: string;
+    content: string | null;
+}
+
+export interface MessageResponse {
+    id: string;
+    channelId: string | null;
+    senderId: string;
+    senderEmail: string;
+    content: string | null;
+    createdAtUtc: string;
+    updatedAtUtc: string | null;
+    attachments: MessageAttachmentResponse[];
+    replyToMessageId: string | null;
+    replyToMessage: MessageReplyResponse | null;
+}
+
+export interface SendMessageRequest {
+    content: string;
+    replyToMessageId?: string | null;
+}
+
 export const messagesApi = {
     async getChannelMessages(
         channelId: string,

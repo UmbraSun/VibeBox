@@ -34,7 +34,10 @@ export function useChannelMessages(channelId: string) {
     }, [channelId]);
 
     const sendMessage = useCallback(
-        async (content: string) => {
+        async (
+            content: string,
+            replyToMessageId?: string | null,
+        ) => {
             const normalizedContent = content.trim();
 
             if (!normalizedContent || isSending) return;
@@ -43,7 +46,11 @@ export function useChannelMessages(channelId: string) {
             setError(null);
 
             try {
-                await messageService.sendMessage(channelId, normalizedContent);
+                await messageService.sendMessage(
+                    channelId,
+                    normalizedContent,
+                    replyToMessageId,
+                );
                 await loadMessages();
             } catch (requestError: unknown) {
                 const message =

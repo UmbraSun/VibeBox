@@ -1,3 +1,4 @@
+
 import type { MessageResponse } from "@/api/messagesApi";
 import { formatFileSize } from "@/features/messages/utils/fileValidation";
 import { MessageAttachmentPreview } from "./MessageAttachmentPreview";
@@ -7,6 +8,8 @@ interface MessageItemProps {
     currentUserId: string | null;
     deletingMessageId: string | null;
     onDelete: (messageId: string) => void;
+    onReply: (message: MessageResponse) => void;
+    onJumpToMessage: (messageId: string) => void;
     onImageClick: (url: string, fileName: string) => void;
 }
 
@@ -15,6 +18,8 @@ export function MessageItem({
     currentUserId,
     deletingMessageId,
     onDelete,
+    onReply,
+    onJumpToMessage,
     onImageClick,
 }: MessageItemProps) {
     const isOwnMessage =
@@ -27,9 +32,37 @@ export function MessageItem({
             data-message-id={message.id}
             data-message-created-at={message.createdAtUtc}
         >
+            {message.replyToMessageId && (
+                <button
+                    type="button"
+                    className="channel-chat-reply-preview"
+                    onClick={() =>
+                        onJumpToMessage(message.replyToMessageId!)
+                    }
+                >
+                    <strong>
+                        {message.replyToMessage?.senderEmail ??
+                            "Original message"}
+                    </strong>
+
+                    <span>
+                        {message.replyToMessage?.content ??
+                            "Original message is unavailable"}
+                    </span>
+                </button>
+            )}
+
             <div className="channel-chat-message-header">
                 <div className="channel-chat-message-author">
                     <strong>{message.senderEmail}</strong>
+
+                    <button
+                        type="button"
+                        onClick={() => onReply(message)}
+                        disabled={deletingMessageId !== null}
+                    >
+                        Reply
+                    </button>
 
                     {isOwnMessage && (
                         <button

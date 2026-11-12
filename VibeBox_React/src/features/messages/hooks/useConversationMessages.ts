@@ -257,7 +257,10 @@ export function useConversationMessages(conversationId: string) {
     ]);
 
     const sendMessage = useCallback(
-        async (content: string) => {
+        async (
+            content: string,
+            replyToMessageId?: string | null,
+        ) => {
             const normalizedContent = content.trim();
 
             if (!normalizedContent || isSending) return;
@@ -269,6 +272,7 @@ export function useConversationMessages(conversationId: string) {
                 await messageService.sendConversationMessage(
                     conversationId,
                     normalizedContent,
+                    replyToMessageId,
                 );
 
                 await refreshLatestMessages();

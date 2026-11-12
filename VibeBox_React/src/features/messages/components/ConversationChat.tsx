@@ -14,6 +14,7 @@ import { GroupConversationPanel } from "@/features/conversations/components/Grou
 import { ImageLightbox } from "./ImageLightbox";
 import { MessageComposer } from "./MessageComposer";
 import { MessageList } from "./MessageList";
+import type { MessageResponse } from "@/api/messagesApi";
 
 interface ConversationChatProps {
     conversationId: string;
@@ -118,12 +119,36 @@ export function ConversationChat({
         });
     }, [hasMoreMessages, isLoadingOlder, loadOlderMessages]);
 
-    async function handleSend(content: string, files: File[]) {
+    const [replyToMessage, setReplyToMessage] =
+        useState<MessageResponse | null>(null);
+
+    async function handleSend(
+        content: string,
+        files: File[],
+        replyToMessageId?: string,
+    ) {
         if (files.length > 0) {
             await sendAttachments(files, content);
         } else {
-            await sendMessage(content);
+            await sendMessage(content, replyToMessageId);
         }
+
+        setReplyToMessage(null);
+    }
+
+    function handleJumpToMessage(messageId: string) {
+        const container = messagesContainerRef.current;
+
+        const target = Array.from(
+            container?.querySelectorAll<HTMLElement>(
+                "[data-message-id]",
+            ) ?? [],
+        ).find((element) => element.dataset.messageId === messageId);
+
+        target?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
     }
 
     async function handleDeleteMessage(messageId: string) {
@@ -149,6 +174,7 @@ export function ConversationChat({
         hasReachedUnreadStartRef.current = false;
         lastSubmittedReadAtRef.current = null;
         pendingScrollRef.current = null;
+        setReplyToMessage(null);
 
         if (readTimerRef.current) {
             clearTimeout(readTimerRef.current);
@@ -378,11 +404,15 @@ export function ConversationChat({
                     onImageClick={(url, fileName) =>
                         setLightbox({ url, fileName })
                     }
+                    onReply={setReplyToMessage}
+                    onJumpToMessage={handleJumpToMessage}
                 />
             </div>
 
             <MessageComposer
                 isSending={isSending}
+                replyToMessage={replyToMessage}
+                onCancelReply={() => setReplyToMessage(null)}
                 onSend={handleSend}
             />
 

@@ -56,12 +56,29 @@ public sealed class SendMessageCommandHandler
                 "You are not a member of this space.");
         }
 
+        if (request.ReplyToMessageId.HasValue)
+        {
+            var replyToMessage = await _messageRepository.GetByIdAsync(
+                request.ReplyToMessageId.Value,
+                cancellationToken);
+
+            if (replyToMessage is null)
+                throw new KeyNotFoundException("Reply message was not found.");
+
+            if (replyToMessage.ChannelId != channel.Id)
+            {
+                throw new ConflictException(
+                    "Reply message must belong to the same channel.");
+            }
+        }
+
         var message = new Message(
             Guid.NewGuid(),
             channel.Id,
             _currentUserService.UserId,
             request.Content.Trim(),
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            request.ReplyToMessageId);
 
         await _messageRepository.AddAsync(message, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);

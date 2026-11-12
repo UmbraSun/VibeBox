@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { MessageResponse } from "@/api/messagesApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { useChannelMessages } from "@/features/messages/hooks/useChannelMessages";
 import { getCurrentUserId } from "@/features/messages/utils/tokenUtils";
@@ -37,12 +38,42 @@ export function ChannelChat({
         deleteMessage,
     } = useChannelMessages(channelId);
 
-    async function handleSend(content: string, files: File[]) {
+    const [replyToMessage, setReplyToMessage] =
+        useState<MessageResponse | null>(null);
+
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setReplyToMessage(null);
+    }, [channelId]);
+
+    async function handleSend(
+        content: string,
+        files: File[],
+        replyToMessageId?: string,
+    ) {
         if (files.length > 0) {
             await sendAttachments(files, content);
         } else {
-            await sendMessage(content);
+            await sendMessage(content, replyToMessageId);
         }
+
+        setReplyToMessage(null);
+    }
+
+    function handleJumpToMessage(messageId: string) {
+        const container = messagesContainerRef.current;
+
+        const target = Array.from(
+            container?.querySelectorAll<HTMLElement>(
+                "[data-message-id]",
+            ) ?? [],
+        ).find((element) => element.dataset.messageId === messageId);
+
+        target?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
     }
 
     async function handleDeleteMessage(messageId: string) {
@@ -88,7 +119,11 @@ export function ChannelChat({
                 </p>
             )}
 
-            <div className="channel-chat-messages" aria-live="polite">
+            <div
+                ref={messagesContainerRef}
+                className="channel-chat-messages"
+                aria-live="polite"
+            >
                 <MessageList
                     messages={messages}
                     isLoading={isLoading}
@@ -100,11 +135,15 @@ export function ChannelChat({
                     onImageClick={(url, fileName) =>
                         setLightbox({ url, fileName })
                     }
+                    onReply={setReplyToMessage}
+                    onJumpToMessage={handleJumpToMessage}
                 />
             </div>
 
             <MessageComposer
                 isSending={isSending}
+                replyToMessage={replyToMessage}
+                onCancelReply={() => setReplyToMessage(null)}
                 onSend={handleSend}
             />
 

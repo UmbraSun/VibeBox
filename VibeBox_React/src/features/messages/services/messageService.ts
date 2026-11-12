@@ -28,9 +28,16 @@ export const messageService = {
         );
     },
 
-    async sendMessage(channelId: string, content: string): Promise<void> {
+    async sendMessage(
+        channelId: string,
+        content: string,
+        replyToMessageId?: string | null,
+    ): Promise<void> {
         try {
-            await messagesApi.sendMessage(channelId, { content });
+            await messagesApi.sendMessage(channelId, {
+                content,
+                replyToMessageId,
+            });
         } catch (error: unknown) {
             throw new Error(
                 getErrorMessage(error, "Unable to send message."),
@@ -41,9 +48,13 @@ export const messageService = {
     async sendConversationMessage(
         conversationId: string,
         content: string,
+        replyToMessageId?: string | null,
     ): Promise<void> {
         try {
-            await conversationsApi.sendMessage(conversationId, { content });
+            await conversationsApi.sendMessage(conversationId, {
+                content,
+                replyToMessageId,
+            });
         } catch (error: unknown) {
             throw new Error(
                 getErrorMessage(error, "Unable to send message."),

@@ -1,5 +1,6 @@
 
 import { useState, type ChangeEvent } from "react";
+import type { MessageResponse } from "@/api/messagesApi";
 import {
     formatFileSize,
     validateFiles,
@@ -7,11 +8,19 @@ import {
 
 interface MessageComposerProps {
     isSending: boolean;
-    onSend: (content: string, files: File[]) => Promise<void>;
+    replyToMessage: MessageResponse | null;
+    onCancelReply: () => void;
+    onSend: (
+        content: string,
+        files: File[],
+        replyToMessageId?: string,
+    ) => Promise<void>;
 }
 
 export function MessageComposer({
     isSending,
+    replyToMessage,
+    onCancelReply,
     onSend,
 }: MessageComposerProps) {
     const [content, setContent] = useState("");
@@ -68,6 +77,13 @@ export function MessageComposer({
             return;
         }
 
+        if (replyToMessage && selectedFiles.length > 0) {
+            setFileError(
+                "Replies with attachments are not supported yet.",
+            );
+            return;
+        }
+
         const validationError = validateFiles(selectedFiles);
 
         if (validationError) {
@@ -76,7 +92,11 @@ export function MessageComposer({
         }
 
         try {
-            await onSend(message, selectedFiles);
+            await onSend(
+                message,
+                selectedFiles,
+                replyToMessage?.id,
+            );
 
             setContent("");
             setSelectedFiles([]);
@@ -88,6 +108,29 @@ export function MessageComposer({
 
     return (
         <form className="room-form channel-chat-form" onSubmit={handleSubmit}>
+            {replyToMessage && (
+                <div className="channel-chat-replying">
+                    <div>
+                        <strong>
+                            Replying to {replyToMessage.senderEmail}
+                        </strong>
+
+                        <p>
+                            {replyToMessage.content || "Attachment"}
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onCancelReply}
+                        disabled={isSending}
+                        aria-label="Cancel reply"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            )}
+
             {fileError && (
                 <p className="form-error" role="alert">
                     {fileError}

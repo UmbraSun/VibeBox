@@ -48,6 +48,13 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasForeignKey(x => x.SenderId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(x => x.ReplyToMessage)
+            .WithMany(x => x.Replies)
+            .HasForeignKey(x => x.ReplyToMessageId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasIndex(x => x.ReplyToMessageId);
+
         builder.HasIndex(x => new { x.ChannelId, x.CreatedAtUtc });
 
         builder.HasIndex(x => new { x.ConversationId, x.CreatedAtUtc });

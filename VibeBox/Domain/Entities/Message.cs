@@ -10,6 +10,8 @@ public sealed class Message
 
     public Guid SenderId { get; private set; }
 
+    public Guid? ReplyToMessageId { get; private set; }
+
     public string? Content { get; private set; }
 
     public DateTime CreatedAtUtc { get; private set; }
@@ -21,9 +23,14 @@ public sealed class Message
     public Conversation? Conversation { get; private set; }
 
     public User Sender { get; private set; } = null!;
+    
+    public Message? ReplyToMessage { get; private set; }
 
     public ICollection<MessageAttachment> Attachments { get; private set; }
         = new List<MessageAttachment>();
+
+    public ICollection<Message> Replies { get; private set; }
+        = new List<Message>();
 
     private Message() { }
 
@@ -33,13 +40,15 @@ public sealed class Message
         Guid channelId,
         Guid senderId,
         string? content,
-        DateTime createdAtUtc)
+        DateTime createdAtUtc,
+        Guid? replyToMessageId = null)
     {
         Id = id;
         ChannelId = channelId;
         SenderId = senderId;
         Content = content;
         CreatedAtUtc = createdAtUtc;
+        ReplyToMessageId = replyToMessageId;
     }
 
     // Creates a message for a direct or group conversation.
@@ -48,7 +57,8 @@ public sealed class Message
         Guid conversationId,
         Guid senderId,
         string? content,
-        DateTime createdAtUtc)
+        DateTime createdAtUtc,
+        Guid? replyToMessageId = null)
     {
         return new Message
         {
@@ -56,7 +66,8 @@ public sealed class Message
             ConversationId = conversationId,
             SenderId = senderId,
             Content = content,
-            CreatedAtUtc = createdAtUtc
+            CreatedAtUtc = createdAtUtc,
+            ReplyToMessageId = replyToMessageId
         };
     }
 
