@@ -120,7 +120,8 @@ public sealed class ConversationsController : ControllerBase
         var id = await _sender.Send(
             new SendConversationMessageCommand(
                 conversationId,
-                request.Content),
+                request.Content,
+                request.ReplyToMessageId),
             cancellationToken);
 
         await _messageHub.Clients

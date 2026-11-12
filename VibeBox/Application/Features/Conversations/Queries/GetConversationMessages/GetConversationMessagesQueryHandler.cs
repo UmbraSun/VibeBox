@@ -56,7 +56,15 @@ public sealed class GetConversationMessagesQueryHandler
                 attachment.FileName,
                 attachment.ContentType,
                 attachment.SizeBytes
-            )).ToList()
+            )).ToList(),
+            message.ReplyToMessageId,
+            message.ReplyToMessage is null
+                ? null
+                : new MessageReplyResponse(
+                    message.ReplyToMessage.Id,
+                    message.ReplyToMessage.SenderId,
+                    message.ReplyToMessage.Sender.Email,
+                    message.ReplyToMessage.Content)
         )).ToList();
     }
 }

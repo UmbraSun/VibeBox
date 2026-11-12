@@ -8,4 +8,6 @@ public sealed record MessageResponse(
     string? Content,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
-    IReadOnlyList<MessageAttachmentResponse> Attachments);
+    IReadOnlyList<MessageAttachmentResponse> Attachments,
+    Guid? ReplyToMessageId,
+    MessageReplyResponse? ReplyToMessage);

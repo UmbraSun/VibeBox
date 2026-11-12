@@ -129,6 +129,9 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("ReplyToMessageId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uuid");
 
@@ -136,6 +139,8 @@ namespace Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReplyToMessageId");
 
                     b.HasIndex("SenderId");
 
@@ -384,6 +389,11 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("Domain.Entities.Message", "ReplyToMessage")
+                        .WithMany("Replies")
+                        .HasForeignKey("ReplyToMessageId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Domain.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -393,6 +403,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("Channel");
 
                     b.Navigation("Conversation");
+
+                    b.Navigation("ReplyToMessage");
 
                     b.Navigation("Sender");
                 });
@@ -459,6 +471,8 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.Message", b =>
                 {
                     b.Navigation("Attachments");
+
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("Domain.Entities.Space", b =>

@@ -51,7 +51,10 @@ public sealed class MessagesController : ControllerBase
         CancellationToken cancellationToken)
     {
         var id = await _sender.Send(
-            new SendMessageCommand(channelId, request.Content),
+            new SendMessageCommand(
+                channelId,
+                request.Content,
+                request.ReplyToMessageId),
             cancellationToken);
 
         await _messageHub.Clients
@@ -93,7 +96,15 @@ public sealed class MessagesController : ControllerBase
                 attachment.Id,
                 attachment.FileName,
                 attachment.ContentType,
-                attachment.SizeBytes)).ToList()
+                attachment.SizeBytes)).ToList(),
+            message.ReplyToMessageId,
+            message.ReplyToMessage is null
+                ? null
+                : new MessageReplyResponse(
+                    message.ReplyToMessage.Id,
+                    message.ReplyToMessage.SenderId,
+                    message.ReplyToMessage.Sender.Email,
+                    message.ReplyToMessage.Content)
         )).ToList();
 
         return Ok(response);

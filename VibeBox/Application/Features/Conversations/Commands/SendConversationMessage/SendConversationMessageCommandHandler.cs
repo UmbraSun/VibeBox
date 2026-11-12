@@ -50,6 +50,22 @@ public sealed class SendConversationMessageCommandHandler
                 "Message content cannot be empty.");
         }
 
+        if (request.ReplyToMessageId.HasValue)
+        {
+            var replyToMessage = await _messageRepository.GetByIdAsync(
+                request.ReplyToMessageId.Value,
+                cancellationToken);
+
+            if (replyToMessage is null)
+                throw new KeyNotFoundException("Reply message was not found.");
+
+            if (replyToMessage.ConversationId != conversation.Id)
+            {
+                throw new ConflictException(
+                    "Reply message must belong to the same conversation.");
+            }
+        }
+
         var createdAtUtc = DateTime.UtcNow;
 
         var message = Message.CreateForConversation(
@@ -57,7 +73,8 @@ public sealed class SendConversationMessageCommandHandler
             conversation.Id,
             currentUserId,
             content,
-            createdAtUtc);
+            createdAtUtc,
+            request.ReplyToMessageId);
 
         conversation.UpdateLastMessageAt(createdAtUtc);
 
