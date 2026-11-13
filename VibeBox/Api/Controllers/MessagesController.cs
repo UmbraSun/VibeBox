@@ -131,6 +131,7 @@ public sealed class MessagesController : ControllerBase
         Guid channelId,
         [FromForm] List<IFormFile> files,
         [FromForm] string? content,
+        [FromForm] Guid? replyToMessageId,
         CancellationToken cancellationToken)
     {
         var uploads = new List<UploadMessageAttachmentFile>(files.Count);
@@ -155,6 +156,7 @@ public sealed class MessagesController : ControllerBase
                     channelId,
                     null,
                     content,
+                    replyToMessageId,
                     uploads),
                 cancellationToken);
 

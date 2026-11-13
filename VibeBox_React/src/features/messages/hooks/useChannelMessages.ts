@@ -68,7 +68,11 @@ export function useChannelMessages(channelId: string) {
     );
 
     const sendAttachments = useCallback(
-        async (files: File[], content?: string) => {
+        async (
+            files: File[],
+            content?: string,
+            replyToMessageId?: string | null,
+        ) => {
             if (isSending || files.length === 0) return;
 
             setIsSending(true);
@@ -79,6 +83,7 @@ export function useChannelMessages(channelId: string) {
                     channelId,
                     files,
                     content,
+                    replyToMessageId,
                 );
                 await loadMessages();
             } catch (requestError: unknown) {

@@ -66,9 +66,15 @@ export const messageService = {
         channelId: string,
         files: File[],
         content?: string,
+        replyToMessageId?: string | null,
     ): Promise<void> {
         try {
-            await messagesApi.uploadAttachments(channelId, files, content);
+            await messagesApi.uploadAttachments(
+                channelId,
+                files,
+                content,
+                replyToMessageId,
+            );
         } catch (error: unknown) {
             throw new Error(
                 getErrorMessage(error, "Unable to upload attachments."),
@@ -80,12 +86,14 @@ export const messageService = {
         conversationId: string,
         files: File[],
         content?: string,
+        replyToMessageId?: string | null,
     ): Promise<void> {
         try {
             await conversationsApi.uploadAttachments(
                 conversationId,
                 files,
                 content,
+                replyToMessageId,
             );
         } catch (error: unknown) {
             throw new Error(
