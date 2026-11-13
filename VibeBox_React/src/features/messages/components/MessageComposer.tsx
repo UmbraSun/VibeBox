@@ -77,13 +77,6 @@ export function MessageComposer({
             return;
         }
 
-        if (replyToMessage && selectedFiles.length > 0) {
-            setFileError(
-                "Replies with attachments are not supported yet.",
-            );
-            return;
-        }
-
         const validationError = validateFiles(selectedFiles);
 
         if (validationError) {

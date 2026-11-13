@@ -17,14 +17,8 @@ export interface MessageResponse {
     createdAtUtc: string;
     updatedAtUtc: string | null;
     attachments: MessageAttachmentResponse[];
-}
-
-export interface SendMessageRequest {
-    content: string;
-}
-
-interface SendMessageResponse {
-    id: string;
+    replyToMessageId: string | null;
+    replyToMessage: MessageReplyResponse | null;
 }
 
 export interface MessageReplyResponse {
@@ -34,22 +28,13 @@ export interface MessageReplyResponse {
     content: string | null;
 }
 
-export interface MessageResponse {
-    id: string;
-    channelId: string | null;
-    senderId: string;
-    senderEmail: string;
-    content: string | null;
-    createdAtUtc: string;
-    updatedAtUtc: string | null;
-    attachments: MessageAttachmentResponse[];
-    replyToMessageId: string | null;
-    replyToMessage: MessageReplyResponse | null;
-}
-
 export interface SendMessageRequest {
     content: string;
     replyToMessageId?: string | null;
+}
+
+interface SendMessageResponse {
+    id: string;
 }
 
 export const messagesApi = {
@@ -90,6 +75,7 @@ export const messagesApi = {
         channelId: string,
         files: File[],
         content?: string,
+        replyToMessageId?: string | null,
     ) => {
         const formData = new FormData();
 
@@ -97,6 +83,10 @@ export const messagesApi = {
 
         if (trimmedContent) {
             formData.append("content", trimmedContent);
+        }
+
+        if (replyToMessageId) {
+            formData.append("replyToMessageId", replyToMessageId);
         }
 
         files.forEach((file) => {

@@ -128,7 +128,7 @@ export function ConversationChat({
         replyToMessageId?: string,
     ) {
         if (files.length > 0) {
-            await sendAttachments(files, content);
+            await sendAttachments(files, content, replyToMessageId);
         } else {
             await sendMessage(content, replyToMessageId);
         }

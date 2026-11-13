@@ -297,7 +297,11 @@ export function useConversationMessages(conversationId: string) {
     );
 
     const sendAttachments = useCallback(
-        async (files: File[], content?: string) => {
+        async (
+            files: File[],
+            content?: string,
+            replyToMessageId?: string | null,
+        ) => {
             if (isSending || files.length === 0) return;
 
             setIsSending(true);
@@ -308,6 +312,7 @@ export function useConversationMessages(conversationId: string) {
                     conversationId,
                     files,
                     content,
+                    replyToMessageId,
                 );
 
                 await refreshLatestMessages();

@@ -165,12 +165,17 @@ export const conversationsApi = {
         conversationId: string,
         files: File[],
         content?: string,
+        replyToMessageId?: string | null,
     ) {
         const formData = new FormData();
         const trimmedContent = content?.trim();
 
         if (trimmedContent) {
             formData.append("content", trimmedContent);
+        }
+
+        if (replyToMessageId) {
+            formData.append("replyToMessageId", replyToMessageId);
         }
 
         files.forEach((file) => {

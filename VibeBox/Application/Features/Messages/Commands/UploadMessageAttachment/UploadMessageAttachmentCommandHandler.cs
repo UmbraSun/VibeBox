@@ -111,6 +111,32 @@ public sealed class UploadMessageAttachmentCommandHandler
             throw new ValidationException(
                 $"You can upload between 1 and {MaxFilesCount} files.");
 
+        Message? replyToMessage = null;
+
+        if (request.ReplyToMessageId.HasValue)
+        {
+            replyToMessage = await _messageRepository.GetByIdAsync(
+                request.ReplyToMessageId.Value,
+                cancellationToken);
+
+            if (replyToMessage is null)
+                throw new KeyNotFoundException("Reply message was not found.");
+
+            if (channel is not null &&
+                replyToMessage.ChannelId != channel.Id)
+            {
+                throw new ConflictException(
+                    "Reply message must belong to the same channel.");
+            }
+
+            if (conversation is not null &&
+                replyToMessage.ConversationId != conversation.Id)
+            {
+                throw new ConflictException(
+                    "Reply message must belong to the same conversation.");
+            }
+        }
+
         long totalSize = 0;
 
         foreach (var file in request.Files)
@@ -192,13 +218,15 @@ public sealed class UploadMessageAttachmentCommandHandler
                 channel.Id,
                 currentUserId,
                 content,
-                createdAtUtc)
+                createdAtUtc,
+                request.ReplyToMessageId)
             : Message.CreateForConversation(
                 messageId,
                 conversation!.Id,
                 currentUserId,
                 content,
-                createdAtUtc);
+                createdAtUtc,
+                request.ReplyToMessageId);
 
         conversation?.UpdateLastMessageAt(createdAtUtc);
 

@@ -158,6 +158,7 @@ public sealed class ConversationsController : ControllerBase
         Guid conversationId,
         [FromForm] List<IFormFile> files,
         [FromForm] string? content,
+        [FromForm] Guid? replyToMessageId,
         CancellationToken cancellationToken)
     {
         var uploads = new List<UploadMessageAttachmentFile>(files.Count);
@@ -182,6 +183,7 @@ public sealed class ConversationsController : ControllerBase
                     null,
                     conversationId,
                     content,
+                    replyToMessageId,
                     uploads),
                 cancellationToken);
 
