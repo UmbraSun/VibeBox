@@ -1373,3 +1373,51 @@ a:hover {
 .channel-chat-message-author button {
     margin-left: 8px;
 }
+
+.channel-chat-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.channel-chat-reaction,
+.channel-chat-reaction-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 8px;
+    color: #ccc;
+    background: #1b1b1b;
+    border: 1px solid #383838;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.channel-chat-reaction:hover,
+.channel-chat-reaction-add:hover {
+    background: #303030;
+    border-color: #555;
+}
+
+.channel-chat-reaction-own {
+    color: #c4b5fd;
+    background: #4c1d9533;
+    border-color: #7c3aed;
+}
+
+.channel-chat-reaction-picker {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.channel-chat-reaction-add {
+    padding: 4px 6px;
+    background: transparent;
+    border-color: transparent;
+}

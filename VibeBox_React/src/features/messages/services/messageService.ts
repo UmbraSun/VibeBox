@@ -102,6 +102,42 @@ export const messageService = {
         }
     },
 
+    async toggleReaction(
+        channelId: string,
+        messageId: string,
+        emoji: string,
+    ): Promise<boolean> {
+        try {
+            return await messagesApi.toggleReaction(
+                channelId,
+                messageId,
+                emoji,
+            );
+        } catch (error: unknown) {
+            throw new Error(
+                getErrorMessage(error, "Unable to toggle reaction."),
+            );
+        }
+    },
+
+    async toggleConversationReaction(
+        conversationId: string,
+        messageId: string,
+        emoji: string,
+    ): Promise<boolean> {
+        try {
+            return await conversationsApi.toggleReaction(
+                conversationId,
+                messageId,
+                emoji,
+            );
+        } catch (error: unknown) {
+            throw new Error(
+                getErrorMessage(error, "Unable to toggle reaction."),
+            );
+        }
+    },
+
     async deleteMessage(
         channelId: string,
         messageId: string,

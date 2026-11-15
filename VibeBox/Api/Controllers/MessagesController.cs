@@ -1,7 +1,10 @@
-﻿using Api.Hubs;
+﻿using Api.Contracts.Messages;
+using Api.Hubs;
+using Application.Common.Interfaces;
 using Application.Common.Models;
 using Application.Features.Messages.Commands.DeleteMessage;
 using Application.Features.Messages.Commands.SendMessage;
+using Application.Features.Messages.Commands.ToggleMessageReaction;
 using Application.Features.Messages.Commands.UploadMessageAttachment;
 using Application.Features.Messages.Queries.GetChannelMessages;
 using MediatR;
@@ -20,14 +23,16 @@ namespace Api.Controllers;
 public sealed class MessagesController : ControllerBase
 {
     private readonly ISender _sender;
-
+    private readonly ICurrentUserService _currentUserService;
     private readonly IHubContext<MessageHub> _messageHub;
 
     public MessagesController(
         ISender sender,
+        ICurrentUserService currentUserService,
         IHubContext<MessageHub> messageHub)
     {
         _sender = sender;
+        _currentUserService = currentUserService;
         _messageHub = messageHub;
     }
 
@@ -84,32 +89,9 @@ public sealed class MessagesController : ControllerBase
             new GetChannelMessagesQuery(channelId, beforeMessageId, limit),
             cancellationToken);
 
-        var response = messages.Select(message => new MessageResponse(
-            message.Id,
-            message.ChannelId!.Value,
-            message.SenderId,
-            message.Sender.Email,
-            message.Content,
-            message.CreatedAtUtc,
-            message.UpdatedAtUtc,
-            message.Attachments.Select(attachment => new MessageAttachmentResponse(
-                attachment.Id,
-                attachment.FileName,
-                attachment.ContentType,
-                attachment.SizeBytes)).ToList(),
-            message.ReplyToMessageId,
-            message.ReplyToMessage is null
-                ? null
-                : new MessageReplyResponse(
-                    message.ReplyToMessage.Id,
-                    message.ReplyToMessage.SenderId,
-                    message.ReplyToMessage.Sender.Email,
-                    message.ReplyToMessage.Content)
-        )).ToList();
-
-        return Ok(response);
+        return Ok(messages);
     }
-
+        
     /// <summary>
     /// Uploads an attachment to the specified channel.
     /// </summary>
@@ -205,5 +187,45 @@ public sealed class MessagesController : ControllerBase
                 cancellationToken);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Toggles the authenticated user's reaction to a message and broadcasts the change to the channel.
+    /// </summary>
+    /// <param name="channelId">The identifier of the channel containing the message.</param>
+    /// <param name="messageId">The identifier of the message whose reaction is toggled.</param>
+    /// <param name="request">The request containing the reaction emoji.</param>
+    /// <param name="cancellationToken">A token that can be used to cancel the operation.</param>
+    /// <returns>An HTTP 200 response containing whether the reaction was added.</returns>
+    [HttpPost("{messageId:guid}/reactions")]
+    public async Task<IActionResult> ToggleReaction(
+        Guid channelId,
+        Guid messageId,
+        [FromBody] ToggleMessageReactionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var added = await _sender.Send(
+            new ToggleMessageReactionCommand(
+                channelId,
+                null,
+                messageId,
+                request.Emoji),
+            cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetChannelGroupName(channelId))
+            .SendAsync(
+                "MessageReactionChanged",
+                new
+                {
+                    MessageId = messageId,
+                    ChannelId = channelId,
+                    Emoji = request.Emoji,
+                    UserId = _currentUserService.UserId,
+                    Added = added
+                },
+                cancellationToken);
+
+        return Ok(new { added });
     }
 }

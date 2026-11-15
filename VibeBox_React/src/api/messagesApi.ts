@@ -19,6 +19,7 @@ export interface MessageResponse {
     attachments: MessageAttachmentResponse[];
     replyToMessageId: string | null;
     replyToMessage: MessageReplyResponse | null;
+    reactions: MessageReactionResponse[];
 }
 
 export interface MessageReplyResponse {
@@ -35,6 +36,12 @@ export interface SendMessageRequest {
 
 interface SendMessageResponse {
     id: string;
+}
+
+export interface MessageReactionResponse {
+    emoji: string;
+    count: number;
+    reactedByCurrentUser: boolean;
 }
 
 export const messagesApi = {
@@ -109,6 +116,19 @@ export const messagesApi = {
                 responseType: "blob",
                 signal,
             },
+        );
+
+        return response.data;
+    },
+
+    async toggleReaction(
+        conversationId: string,
+        messageId: string,
+        emoji: string,
+    ): Promise<boolean> {
+        const response = await apiClient.post<boolean>(
+            `/conversations/${conversationId}/messages/${messageId}/reactions`,
+            { emoji },
         );
 
         return response.data;

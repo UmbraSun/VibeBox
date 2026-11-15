@@ -32,6 +32,9 @@ public sealed class Message
     public ICollection<Message> Replies { get; private set; }
         = new List<Message>();
 
+    public ICollection<MessageReaction> Reactions { get; private set; }
+        = new List<MessageReaction>();
+
     private Message() { }
 
     // Creates a message for a text channel.

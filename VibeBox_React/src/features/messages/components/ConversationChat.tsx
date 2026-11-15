@@ -73,6 +73,7 @@ export function ConversationChat({
         sendMessage,
         sendAttachments,
         deleteMessage,
+        toggleReaction,
         loadOlderMessages,
     } = useConversationMessages(conversationId);
 
@@ -406,6 +407,9 @@ export function ConversationChat({
                     }
                     onReply={setReplyToMessage}
                     onJumpToMessage={handleJumpToMessage}
+                    onToggleReaction={(messageId, emoji) => {
+                        void toggleReaction(messageId, emoji);
+                    }}
                 />
             </div>
 

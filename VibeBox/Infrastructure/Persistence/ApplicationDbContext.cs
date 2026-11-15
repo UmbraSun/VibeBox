@@ -31,6 +31,8 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 
     public DbSet<StorageDeletionOutboxMessage> StorageDeletionOutboxMessages => Set<StorageDeletionOutboxMessage>();
 
+    public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
+
     IQueryable<User> IApplicationDbContext.Users => Users;
 
     public void AddStorageDeletionOutboxMessage(

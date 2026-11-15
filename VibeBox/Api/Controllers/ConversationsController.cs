@@ -1,4 +1,5 @@
 ﻿using Api.Contracts.Conversations;
+using Api.Contracts.Messages;
 using Api.Hubs;
 using Application.Common.Interfaces;
 using Application.Common.Models;
@@ -14,6 +15,7 @@ using Application.Features.Conversations.Queries.GetConversationDetails;
 using Application.Features.Conversations.Queries.GetConversationMessages;
 using Application.Features.Conversations.Queries.GetMyConversations;
 using Application.Features.Messages.Commands.DeleteMessage;
+using Application.Features.Messages.Commands.ToggleMessageReaction;
 using Application.Features.Messages.Commands.UploadMessageAttachment;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -33,15 +35,18 @@ public sealed class ConversationsController : ControllerBase
     private readonly ISender _sender;
     private readonly IHubContext<MessageHub> _messageHub;
     private readonly IConversationRepository _conversationRepository;
+    private readonly ICurrentUserService _currentUserService;
 
     public ConversationsController(
         ISender sender,
         IHubContext<MessageHub> messageHub,
-        IConversationRepository conversationRepository)
+        IConversationRepository conversationRepository,
+        ICurrentUserService currentUserService)
     {
         _sender = sender;
         _messageHub = messageHub;
         _conversationRepository = conversationRepository;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
@@ -421,6 +426,46 @@ public sealed class ConversationsController : ControllerBase
             cancellationToken);
 
         return NoContent();
+    }
+    
+    /// <summary>
+    /// Toggles the specified reaction on a message and broadcasts the change to the conversation.
+    /// </summary>
+    /// <param name="conversationId">The identifier of the conversation containing the message.</param>
+    /// <param name="messageId">The identifier of the message whose reaction to toggle.</param>
+    /// <param name="request">The request containing the reaction emoji.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>An action result containing whether the reaction was added.</returns>
+    [HttpPost("{conversationId:guid}/messages/{messageId:guid}/reactions")]
+    public async Task<IActionResult> ToggleReaction(
+        Guid conversationId,
+        Guid messageId,
+        [FromBody] ToggleMessageReactionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var added = await _sender.Send(
+            new ToggleMessageReactionCommand(
+                null,
+                conversationId,
+                messageId,
+                request.Emoji),
+            cancellationToken);
+
+        await _messageHub.Clients
+            .Group(MessageHub.GetConversationGroupName(conversationId))
+            .SendAsync(
+                "MessageReactionChanged",
+                new
+                {
+                    MessageId = messageId,
+                    ConversationId = conversationId,
+                    Emoji = request.Emoji,
+                    UserId = _currentUserService.UserId,
+                    Added = added
+                },
+                cancellationToken);
+
+        return Ok(new { added });
     }
 
     private async Task NotifyConversationUpdatedAsync(

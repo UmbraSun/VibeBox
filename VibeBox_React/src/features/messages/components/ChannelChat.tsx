@@ -35,6 +35,7 @@ export function ChannelChat({
         error,
         sendMessage,
         sendAttachments,
+        toggleReaction,
         deleteMessage,
     } = useChannelMessages(channelId);
 
@@ -137,6 +138,9 @@ export function ChannelChat({
                     }
                     onReply={setReplyToMessage}
                     onJumpToMessage={handleJumpToMessage}
+                    onToggleReaction={(messageId, emoji) => {
+                        void toggleReaction(messageId, emoji);
+                    }}
                 />
             </div>
 

@@ -9,15 +9,18 @@ public sealed class GetConversationMessagesQueryHandler
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
+    private readonly IMessageReactionRepository _reactionRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetConversationMessagesQueryHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
+        IMessageReactionRepository reactionRepository,
         ICurrentUserService currentUserService)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
+        _reactionRepository = reactionRepository;
         _currentUserService = currentUserService;
     }
 
@@ -43,6 +46,30 @@ public sealed class GetConversationMessagesQueryHandler
             limit,
             cancellationToken);
 
+        if (messages.Count == 0)
+            return Array.Empty<MessageResponse>();
+
+        var messageIds = messages
+            .Select(message => message.Id)
+            .ToArray();
+
+        var reactions = await _reactionRepository.GetByMessageIdsAsync(
+            messageIds,
+            cancellationToken);
+
+        var reactionsByMessage = reactions
+            .GroupBy(reaction => reaction.MessageId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<MessageReactionResponse>)group
+                    .GroupBy(reaction => reaction.Emoji)
+                    .Select(emojiGroup => new MessageReactionResponse(
+                        emojiGroup.Key,
+                        emojiGroup.Count(),
+                        emojiGroup.Any(reaction =>
+                            reaction.UserId == currentUserId)))
+                    .ToList());
+
         return messages.Select(message => new MessageResponse(
             message.Id,
             message.ChannelId,
@@ -64,7 +91,10 @@ public sealed class GetConversationMessagesQueryHandler
                     message.ReplyToMessage.Id,
                     message.ReplyToMessage.SenderId,
                     message.ReplyToMessage.Sender.Email,
-                    message.ReplyToMessage.Content)
+                    message.ReplyToMessage.Content),
+            reactionsByMessage.TryGetValue(message.Id, out var messageReactions)
+                ? messageReactions
+                : Array.Empty<MessageReactionResponse>()
         )).ToList();
     }
 }
