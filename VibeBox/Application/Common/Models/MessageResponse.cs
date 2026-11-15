@@ -10,4 +10,5 @@ public sealed record MessageResponse(
     DateTime? UpdatedAtUtc,
     IReadOnlyList<MessageAttachmentResponse> Attachments,
     Guid? ReplyToMessageId,
-    MessageReplyResponse? ReplyToMessage);
+    MessageReplyResponse? ReplyToMessage,
+    IReadOnlyList<MessageReactionResponse> Reactions);

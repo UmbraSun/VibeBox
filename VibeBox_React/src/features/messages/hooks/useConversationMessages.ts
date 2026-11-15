@@ -8,6 +8,10 @@ import {
 import type { MessageResponse } from "@/api/messagesApi";
 import { messageService } from "@/features/messages/services/messageService";
 import { useMessageHub } from "./useMessageHub";
+import type { MessageReactionChangedEvent } from "./useMessageHub";
+import { useAuthStore } from "@/features/auth/store/authStore";
+import { getCurrentUserId } from "@/features/messages/utils/tokenUtils";
+import { applyReactionChange } from "@/features/messages/utils/reactionUtils";
 
 const PAGE_SIZE = 50;
 const HUB_REFRESH_DELAY = 100;
@@ -23,6 +27,7 @@ function mergeMessages(
     current: MessageResponse[],
     incoming: MessageResponse[],
 ): MessageResponse[] {
+
     const messagesById = new Map(
         current.map((message) => [message.id, message]),
     );
@@ -48,6 +53,8 @@ function getErrorMessage(
 }
 
 export function useConversationMessages(conversationId: string) {
+    const accessToken = useAuthStore((state) => state.accessToken);
+    const currentUserId = getCurrentUserId(accessToken);
     const [messages, setMessages] = useState<MessageResponse[]>([]);
     const [connectionStatus, setConnectionStatus] =
         useState<ConnectionStatus>("disconnected");
@@ -369,6 +376,49 @@ export function useConversationMessages(conversationId: string) {
         [conversationId],
     );
 
+    const toggleReaction = useCallback(
+        async (messageId: string, emoji: string) => {
+            setError(null);
+
+            try {
+                await messageService.toggleConversationReaction(
+                    conversationId,
+                    messageId,
+                    emoji,
+                );
+
+                if (activeConversationIdRef.current !== conversationId) {
+                    return;
+                }
+
+                await refreshLatestMessages();
+            } catch (requestError: unknown) {
+                if (activeConversationIdRef.current === conversationId) {
+                    setError(
+                        getErrorMessage(
+                            requestError,
+                            "Unable to toggle reaction.",
+                        ),
+                    );
+                }
+            }
+        },
+        [conversationId, refreshLatestMessages],
+    );
+
+    const handleMessageReactionChanged = useCallback(
+        (event: MessageReactionChangedEvent) => {
+            if (currentUserId && event.userId === currentUserId) {
+                return;
+            }
+
+            setMessages((current) =>
+                applyReactionChange(current, event, currentUserId),
+            );
+        },
+        [conversationId, currentUserId],
+    );
+
     const handleMessageCreated = useCallback(() => {
         if (
             Date.now() - lastRefreshAtRef.current <
@@ -443,6 +493,7 @@ export function useConversationMessages(conversationId: string) {
         onMessageDeleted: handleMessageDeleted,
         onConnected: handleConnected,
         onStatusChange: handleStatusChange,
+        onMessageReactionChanged: handleMessageReactionChanged,
         onError: handleHubError,
     });
 
@@ -458,6 +509,7 @@ export function useConversationMessages(conversationId: string) {
         sendAttachments,
         deleteMessage,
         loadOlderMessages,
+        toggleReaction,
         reloadMessages: refreshLatestMessages,
     };
 }

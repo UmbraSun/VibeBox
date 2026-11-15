@@ -20,6 +20,15 @@ interface MessageHubEvent {
     conversationId?: string;
 }
 
+export interface MessageReactionChangedEvent {
+    messageId: string;
+    channelId?: string | null;
+    conversationId?: string | null;
+    emoji: string;
+    userId: string;
+    added: boolean;
+}
+
 interface UseMessageHubOptions {
     channelId?: string;
     conversationId?: string;
@@ -31,6 +40,9 @@ interface UseMessageHubOptions {
     onError: (message: string) => void;
     onConversationMessageChanged?: (conversationId: string) => void;
     onConversationUpdated?: (conversationId: string) => void;
+    onMessageReactionChanged?: (
+        event: MessageReactionChangedEvent,
+    ) => void;
 }
 
 export function useMessageHub({
@@ -44,6 +56,7 @@ export function useMessageHub({
     onError,
     onConversationMessageChanged,
     onConversationUpdated,
+    onMessageReactionChanged,
 }: UseMessageHubOptions) {
     const conversationIdsKey = conversationIds?.join(",") ?? null;
 
@@ -54,8 +67,8 @@ export function useMessageHub({
         const targetIds = isConversationList
             ? conversationIdsKey.split(",").filter(Boolean)
             : [conversationId ?? channelId].filter(
-                  (id): id is string => Boolean(id),
-              );
+                (id): id is string => Boolean(id),
+            );
 
         const isNotificationOnly =
             !isConversationList &&
@@ -127,6 +140,31 @@ export function useMessageHub({
             }
         }
 
+        function handleMessageReactionChanged(
+            event: MessageReactionChangedEvent,
+        ) {
+            if (!active) return;
+
+            if (isConversationList) {
+                if (
+                    event.conversationId &&
+                    conversationIdSet.has(event.conversationId.toLowerCase())
+                ) {
+                    onMessageReactionChanged?.(event);
+                }
+
+                return;
+            }
+
+            const eventId = isConversation
+                ? event.conversationId
+                : event.channelId;
+
+            if (eventId?.toLowerCase() === targetIds[0]?.toLowerCase()) {
+                onMessageReactionChanged?.(event);
+            }
+        }
+
         function handleConversationUpdated(event: {
             conversationId: string;
         }) {
@@ -166,6 +204,13 @@ export function useMessageHub({
 
             if (onMessageDeleted || onConversationMessageChanged) {
                 target.on("MessageDeleted", handleMessageDeleted);
+            }
+
+            if (onMessageReactionChanged) {
+                target.on(
+                    "MessageReactionChanged",
+                    handleMessageReactionChanged,
+                );
             }
 
             if (onConversationUpdated) {
@@ -297,5 +342,6 @@ export function useMessageHub({
         onError,
         onConversationMessageChanged,
         onConversationUpdated,
+        onMessageReactionChanged,
     ]);
 }

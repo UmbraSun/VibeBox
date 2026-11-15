@@ -190,6 +190,35 @@ namespace Infrastructure.Migrations
                     b.ToTable("message_attachments", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.MessageReaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Emoji")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("MessageId", "UserId", "Emoji")
+                        .IsUnique();
+
+                    b.ToTable("message_reactions", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -420,6 +449,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Message");
                 });
 
+            modelBuilder.Entity("Domain.Entities.MessageReaction", b =>
+                {
+                    b.HasOne("Domain.Entities.Message", "Message")
+                        .WithMany("Reactions")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("Domain.Entities.User", "User")
@@ -471,6 +519,8 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.Message", b =>
                 {
                     b.Navigation("Attachments");
+
+                    b.Navigation("Reactions");
 
                     b.Navigation("Replies");
                 });

@@ -13,6 +13,7 @@ interface MessageListProps {
     onReply: (message: MessageResponse) => void;
     onJumpToMessage: (messageId: string) => void;
     onImageClick: (url: string, fileName: string) => void;
+    onToggleReaction: (messageId: string, emoji: string) => void;
 }
 
 export function MessageList({
@@ -26,6 +27,7 @@ export function MessageList({
     onReply,
     onJumpToMessage,
     onImageClick,
+    onToggleReaction,
 }: MessageListProps) {
     if (isLoading) {
         return <p>Loading messages...</p>;
@@ -59,6 +61,7 @@ export function MessageList({
                         onReply={onReply}
                         onJumpToMessage={onJumpToMessage}
                         onImageClick={onImageClick}
+                        onToggleReaction={onToggleReaction}
                     />
                 </div>
             ))}

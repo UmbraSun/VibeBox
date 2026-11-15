@@ -188,6 +188,19 @@ export const conversationsApi = {
         );
     },
 
+    async toggleReaction(
+        conversationId: string,
+        messageId: string,
+        emoji: string,
+    ): Promise<boolean> {
+        const response = await apiClient.post<boolean>(
+            `/conversations/${conversationId}/messages/${messageId}/reactions`,
+            { emoji },
+        );
+
+        return response.data;
+    },
+
     async deleteMessage(
         conversationId: string,
         messageId: string,

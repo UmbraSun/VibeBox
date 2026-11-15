@@ -11,7 +11,10 @@ interface MessageItemProps {
     onReply: (message: MessageResponse) => void;
     onJumpToMessage: (messageId: string) => void;
     onImageClick: (url: string, fileName: string) => void;
+    onToggleReaction: (messageId: string, emoji: string) => void;
 }
+
+const AVAILABLE_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
 
 export function MessageItem({
     message,
@@ -21,6 +24,7 @@ export function MessageItem({
     onReply,
     onJumpToMessage,
     onImageClick,
+    onToggleReaction,
 }: MessageItemProps) {
     const isOwnMessage =
         !!currentUserId &&
@@ -98,6 +102,44 @@ export function MessageItem({
                     </span>
                 </div>
             ))}
+
+            <div className="channel-chat-reactions">
+                {message.reactions?.map((reaction) => (
+                    <button
+                        key={reaction.emoji}
+                        type="button"
+                        className={`channel-chat-reaction ${
+                            reaction.reactedByCurrentUser
+                                ? "channel-chat-reaction-own"
+                                : ""
+                        }`}
+                        aria-pressed={reaction.reactedByCurrentUser}
+                        onClick={() =>
+                            onToggleReaction(message.id, reaction.emoji)
+                        }
+                    >
+                        <span>{reaction.emoji}</span>
+                        <span>{reaction.count}</span>
+                    </button>
+                ))}
+
+                <div className="channel-chat-reaction-picker">
+                    {AVAILABLE_REACTIONS.map((emoji) => (
+                        <button
+                            key={emoji}
+                            type="button"
+                            className="channel-chat-reaction-add"
+                            title={`React with ${emoji}`}
+                            aria-label={`React with ${emoji}`}
+                            onClick={() =>
+                                onToggleReaction(message.id, emoji)
+                            }
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                </div>
+            </div>
         </article>
     );
 }

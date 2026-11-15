@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { MessageResponse } from "@/api/messagesApi";
 import { messageService } from "@/features/messages/services/messageService";
 import { useMessageHub } from "./useMessageHub";
+import { useAuthStore } from "@/features/auth/store/authStore";
+import { getCurrentUserId } from "@/features/messages/utils/tokenUtils";
+import { applyReactionChange } from "@/features/messages/utils/reactionUtils";
+import type { MessageReactionChangedEvent } from "./useMessageHub";
 
 type ConnectionStatus =
     | "disconnected"
@@ -10,6 +14,8 @@ type ConnectionStatus =
     | "error";
 
 export function useChannelMessages(channelId: string) {
+    const accessToken = useAuthStore((state) => state.accessToken);
+    const currentUserId = getCurrentUserId(accessToken);
     const [messages, setMessages] = useState<MessageResponse[]>([]);
     const [connectionStatus, setConnectionStatus] =
         useState<ConnectionStatus>("disconnected");
@@ -126,6 +132,42 @@ export function useChannelMessages(channelId: string) {
         [channelId],
     );
 
+    const toggleReaction = useCallback(
+        async (messageId: string, emoji: string) => {
+            setError(null);
+
+            try {
+                await messageService.toggleReaction(
+                    channelId,
+                    messageId,
+                    emoji,
+                );
+
+                await loadMessages();
+            } catch (requestError: unknown) {
+                setError(
+                    requestError instanceof Error
+                        ? requestError.message
+                        : "Unable to toggle reaction.",
+                );
+            }
+        },
+        [channelId, loadMessages],
+    );
+
+    const handleMessageReactionChanged = useCallback(
+        (event: MessageReactionChangedEvent) => {
+            if (currentUserId && event.userId === currentUserId) {
+                return;
+            }
+
+            setMessages((current) =>
+                applyReactionChange(current, event, currentUserId),
+            );
+        },
+        [currentUserId],
+    );
+
     const handleMessageCreated = useCallback(() => {
         void loadMessages();
     }, [loadMessages]);
@@ -159,6 +201,7 @@ export function useChannelMessages(channelId: string) {
         channelId,
         onMessageCreated: handleMessageCreated,
         onMessageDeleted: handleMessageDeleted,
+        onMessageReactionChanged: handleMessageReactionChanged,
         onConnected: handleConnected,
         onStatusChange: handleStatusChange,
         onError: handleHubError,
@@ -173,6 +216,7 @@ export function useChannelMessages(channelId: string) {
         sendMessage,
         sendAttachments,
         deleteMessage,
+        toggleReaction,
         reloadMessages: loadMessages,
     };
 }
