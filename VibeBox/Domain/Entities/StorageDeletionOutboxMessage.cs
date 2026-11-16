@@ -5,12 +5,14 @@ public sealed class StorageDeletionOutboxMessage
     public Guid Id { get; private set; }
 
     public string StorageKey { get; private set; } = null!;
-
+    
     public DateTime CreatedAtUtc { get; private set; }
 
     public DateTime NextAttemptAtUtc { get; private set; }
 
     public DateTime? LockedUntilUtc { get; private set; }
+
+    public Guid? LockId { get; private set; }
 
     public DateTime? ProcessedAtUtc { get; private set; }
 
