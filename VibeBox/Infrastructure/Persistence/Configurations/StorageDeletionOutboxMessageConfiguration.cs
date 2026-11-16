@@ -36,7 +36,12 @@ public sealed class StorageDeletionOutboxMessageConfiguration
         builder.HasIndex(x => new
         {
             x.ProcessedAtUtc,
-            x.NextAttemptAtUtc
+            x.NextAttemptAtUtc,
+            x.LockedUntilUtc,
+            x.CreatedAtUtc
         });
+
+        builder.Property(x => x.LockId);
+
     }
 }

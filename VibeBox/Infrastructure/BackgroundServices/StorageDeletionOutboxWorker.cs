@@ -79,16 +79,34 @@ public sealed class StorageDeletionOutboxWorker : BackgroundService
 
             processedAny = true;
 
+            var lockId = message.LockId
+                ?? throw new InvalidOperationException(
+                    "Claimed outbox message has no lock identifier.");
+
             try
             {
                 await storage.DeleteAsync(
                     message.StorageKey,
                     cancellationToken);
 
-                await repository.MarkAsProcessedAsync(
-                    message.Id,
+                var processed = await repository.MarkAsProcessedAsync(
+                    message.Id, 
+                    lockId,
                     DateTime.UtcNow,
                     cancellationToken);
+
+                if (!processed)
+                {
+                    _logger.LogWarning(
+                        "Outbox message {MessageId} was deleted from storage, but its lock is no longer owned by this worker.",
+                        message.Id);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Storage object {StorageKey} was deleted.",
+                        message.StorageKey);
+                }
 
                 _logger.LogInformation(
                     "Storage object {StorageKey} was deleted.",
@@ -104,11 +122,19 @@ public sealed class StorageDeletionOutboxWorker : BackgroundService
                 var retryDelay = TimeSpan.FromMinutes(
                     Math.Min(Math.Pow(2, message.Attempts - 1), 60));
 
-                await repository.MarkAsFailedAsync(
+                var markedAsFailed = await repository.MarkAsFailedAsync(
                     message.Id,
+                    lockId,
                     DateTime.UtcNow.Add(retryDelay),
                     exception.Message,
                     cancellationToken);
+
+                if (!markedAsFailed)
+                {
+                    _logger.LogWarning(
+                        "Could not mark outbox message {MessageId} as failed because its lock is no longer owned by this worker.",
+                        message.Id);
+                }
 
                 _logger.LogError(
                     exception,

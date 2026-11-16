@@ -317,6 +317,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<Guid?>("LockId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("LockedUntilUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -333,7 +336,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProcessedAtUtc", "NextAttemptAtUtc");
+                    b.HasIndex("ProcessedAtUtc", "NextAttemptAtUtc", "LockedUntilUtc", "CreatedAtUtc");
 
                     b.ToTable("storage_deletion_outbox", (string)null);
                 });

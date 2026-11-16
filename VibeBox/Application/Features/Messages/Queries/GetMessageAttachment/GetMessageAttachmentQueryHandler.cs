@@ -43,9 +43,10 @@ public sealed class GetMessageAttachmentQueryHandler
 
         if (message.ChannelId.HasValue)
         {
-            var channel = message.Channel
-                ?? throw new InvalidOperationException(
-                    "Attachment message channel was not loaded.");
+            var channel = message.Channel;
+
+            if (channel is null || channel.Id != message.ChannelId.Value)
+                throw new KeyNotFoundException("Attachment was not found.");
 
             var member = await _spaceRepository.GetMemberAsync(
                 channel.SpaceId,
